@@ -1,4 +1,3 @@
-
 variable "cluster_identifier" {
   type        = string
   description = "The identifier for the Redshift cluster"

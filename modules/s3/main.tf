@@ -1,6 +1,7 @@
 # S3 bucket
 resource "aws_s3_bucket" "example" {
   bucket = "${var.environment}-${var.bucket_name}"
+  force_destroy = true
 }
 
 # S3 bucket versioning
@@ -50,3 +51,5 @@ resource "aws_s3_bucket_lifecycle_configuration" "example" {
     }
   }
 }
+
+

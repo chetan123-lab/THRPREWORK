@@ -148,6 +148,57 @@ variable "skip_final_snapshot" {
   description = "Whether to skip the final snapshot"
 }
 
+variable "secret_name" {
+  type        = string
+  description = "The name of the secret"
+}
 
+variable "secret_value" {
+  type        = string
+  description = "The value of the secret"
+  sensitive   = true
+}
 
+variable "kms_key_id" {
+  type        = string
+  description = "The KMS key ID to use for encryption"
+}
 
+variable "recovery_window" {
+  type        = number
+  description = "The recovery window in days"
+  default     = 30
+}
+
+variable "key_description" {
+  type        = string
+  description = "The description of the KMS key"
+}
+
+variable "key_alias" {
+  type        = string
+  description = "The alias of the KMS key"
+}
+
+variable "enable_key_rotation" {
+  type        = bool
+  description = "Whether to enable key rotation"
+  default     = true
+}
+
+variable "domain_name" {
+  type        = string
+  description = "The domain name for the certificate"
+}
+
+variable "validation_method" {
+  type        = string
+  description = "The validation method for the certificate (DNS or EMAIL)"
+  default     = "DNS"
+}
+
+variable "zone_id" {
+  type        = string
+  description = "The ID of the Route 53 zone"
+  default     = null
+}

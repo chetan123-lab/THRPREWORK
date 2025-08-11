@@ -5,32 +5,31 @@ terraform apply --var-file dev.tfvars --auto-approve
 terraform destroy --var-file dev.tfvars --auto-approve
 
 #AWS Services Created Till Now:
-1)EC2
-2)key_pair
-3)S3
-4)security_group
-5)Redshift
+1)certificate_manager
+2)ec2
+3)iam
+4)key_pair
+5)kms_keys
+6)redshift
+7)s3
+8)secret_manager
+9)security_group
+10)vpc
 
-#Directory Structure:
-- THRPREWORK
-    - modules
-        - ec2
-            - main.tf
-            - output.tf
-            - variable.tf
-        - key_pair
-        - redshift
-            - main.tf
-            - output.tf
-            - variable.tf
-        - s3
-        - security_group
-            - main.tf
-            - output.tf
-            - variable.tf
-        - vpc
-    - dev.tfvars
-    - main.tf
-    - README.md
-    - Screenshots.docx
-    - variable.tf
+THRPREWORK/
+|--- modules/
+|    |--- certificate_manager/
+|    |--- ec2/
+|    |--- iam/
+|    |--- key_pair/
+|    |--- kms_keys/
+|    |--- redshift/
+|    |--- s3/
+|    |--- secret_manager/
+|    |--- security_group/
+|    |--- vpc/
+|--- dev.tfvars
+|--- main.tf
+|--- README.md
+|--- Screenshots.docx
+|--- variable.tf

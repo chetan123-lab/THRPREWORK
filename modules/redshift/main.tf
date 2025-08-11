@@ -1,3 +1,4 @@
+
 resource "aws_redshift_cluster" "example" {
   cluster_identifier      = var.cluster_identifier
   database_name           = var.database_name

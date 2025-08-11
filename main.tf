@@ -1,16 +1,15 @@
 # Provider configuration
 provider "aws" {
   region = var.aws_region
-  access_key = ""
-  secret_key = ""
+  access_key = " "
+  secret_key = " "
 }
 
 # S3 module
 module "s3" {
   source = "./modules/s3"
-
-  environment = var.environment
-  bucket_name = var.bucket_name
+  environment  =  var.environment
+  bucket_name  =  var.bucket_name
 }
 
 module "vpc" {
@@ -60,4 +59,33 @@ module "redshift" {
   cluster_type  = var.cluster_type
   publicly_accessible  = var.publicly_accessible
   skip_final_snapshot  = var.skip_final_snapshot
+}
+
+module "secret_manager" {
+  source = "./modules/secret_manager"
+  secret_name  = var.secret_name
+  secret_value = var.secret_value
+  kms_key_id  = var.kms_key_id
+  recovery_window = var.recovery_window
+}
+
+module "kms_keys" {
+  source = "./modules/kms_keys"
+  key_description = var.key_description
+  key_alias = var.key_alias
+  enable_key_rotation = var.enable_key_rotation
+}
+
+module "certificate_manager" {
+  source = "./modules/certificate_manager"
+  domain_name       = var.domain_name
+  validation_method = var.validation_method
+  zone_id = var.zone_id
+}
+
+module "iam" {
+  source = "./modules/iam"
+
+  bucket_name = var.bucket_name
+  environment = var.environment
 }
