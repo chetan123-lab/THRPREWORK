@@ -15,6 +15,7 @@ terraform destroy --var-file dev.tfvars --auto-approve
 8)secret_manager
 9)security_group
 10)vpc
+11)sagemaker
 
 THRPREWORK/
 |--- modules/
@@ -25,6 +26,7 @@ THRPREWORK/
 |    |--- kms_keys/
 |    |--- redshift/
 |    |--- s3/
+|    |--- sagemaker/
 |    |--- secret_manager/
 |    |--- security_group/
 |    |--- vpc/

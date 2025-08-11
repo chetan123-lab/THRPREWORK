@@ -202,3 +202,20 @@ variable "zone_id" {
   description = "The ID of the Route 53 zone"
   default     = null
 }
+
+variable "notebook_instance_name" {
+  type        = string
+  description = "Name of the SageMaker notebook instance"
+}
+
+variable "role_arn" {
+  type        = string
+  description = "ID of the subnet for the SageMaker notebook role_arn"
+}
+
+variable "instance_type_sagemaker" {
+  type        = string
+  default     = "ml.t2.medium"
+  description = "The type of the EC2 instance"
+}
+

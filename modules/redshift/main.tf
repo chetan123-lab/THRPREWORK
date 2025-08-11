@@ -1,4 +1,3 @@
-
 resource "aws_redshift_cluster" "example" {
   cluster_identifier      = var.cluster_identifier
   database_name           = var.database_name
@@ -9,3 +8,4 @@ resource "aws_redshift_cluster" "example" {
   publicly_accessible     = var.publicly_accessible
   skip_final_snapshot     = var.skip_final_snapshot
 }
+

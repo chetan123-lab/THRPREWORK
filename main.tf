@@ -51,6 +51,7 @@ module "ec2" {
 
 module "redshift" {
   source = "./modules/redshift"
+  
   cluster_identifier = var.cluster_identifier
   database_name  = var.database_name
   master_username  = var.master_username
@@ -85,7 +86,14 @@ module "certificate_manager" {
 
 module "iam" {
   source = "./modules/iam"
-
   bucket_name = var.bucket_name
   environment = var.environment
 }
+
+module "sagemaker" {
+  source = "./modules/sagemaker"
+  notebook_instance_name  =  var.notebook_instance_name
+  instance_type_sagemaker = var.instance_type_sagemaker
+  role_arn  = var.role_arn
+}
+
