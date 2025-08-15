@@ -1,8 +1,10 @@
 # THRPREWORK
 #Terraform Commands:
-terraform plan --var-file dev.tfvars
-terraform apply --var-file dev.tfvars --auto-approve
-terraform destroy --var-file dev.tfvars --auto-approve
+terraform init -reconfigure -backend-config backend/backend-dev.hcl
+terraform workspace select dev || terraform workspace new dev
+terraform plan --var-file envs/dev.tfvars
+terraform apply --var-file envs/dev.tfvars --auto-approve
+terraform destroy --var-file envs/ dev.tfvars --auto-approve
 
 #AWS Services Created Till Now:
 1)certificate_manager

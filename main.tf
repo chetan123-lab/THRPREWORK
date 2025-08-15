@@ -1,8 +1,6 @@
 # Provider configuration
 provider "aws" {
   region = var.aws_region
-  access_key = " "
-  secret_key = " "
 }
 
 # S3 module
@@ -12,6 +10,7 @@ module "s3" {
   bucket_name  =  var.bucket_name
 }
 
+/*
 module "vpc" {
   source            = "./modules/vpc"
   cidr_block        = var.vpc_cidr_block
@@ -97,3 +96,4 @@ module "sagemaker" {
   role_arn  = var.role_arn
 }
 
+*/

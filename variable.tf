@@ -219,3 +219,5 @@ variable "instance_type_sagemaker" {
   description = "The type of the EC2 instance"
 }
 
+
+
