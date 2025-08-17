@@ -28,23 +28,21 @@ variable "vpc_name" {
   description = "The name of the VPC"
 }
 
-variable "subnet_cidr_block" {
-  type        = string
-  default     = "10.0.1.0/24"
-  description = "The CIDR block for the subnet"
+variable "subnet_cidr_blocks" {
+  description = "List of subnet CIDRs"
+  type        = list(string)
 }
 
-variable "subnet_name" {
-  type        = string
-  default     = "example-subnet"
-  description = "The name of the subnet"
+variable "subnet_names" {
+  description = "List of subnet names"
+  type        = list(string)
 }
 
-variable "availability_zone" {
-  type        = string
-  default     = "us-west-2a"
-  description = "The availability zone for the subnet"
+variable "availability_zones" {
+  description = "List of AZs to use"
+  type        = list(string)
 }
+
 
 variable "igw_name" {
   type        = string
@@ -219,5 +217,175 @@ variable "instance_type_sagemaker" {
   description = "The type of the EC2 instance"
 }
 
+variable "tags" {
+  type        = map(string)
+  description = "Tags to apply"
+  default     = {}
+}
 
+variable "gwlb_name" {
+  type        = string
+  description = "Name prefix for Gateway Load Balancer"
+}
 
+variable "name_of_sns" {
+  type        = string
+  description = "Prefix/environment name (used for tagging)"
+}
+
+variable "display_name" {
+  type        = string
+  description = "SNS display name (shown in console and emails)"
+  default     = null
+}
+
+variable "config_name"   { 
+  type = string 
+}
+
+variable "create_sns" {
+  type    = bool
+  default = true
+}
+
+variable "sns_topic_name" {
+  type    = string
+  default = ""
+}
+
+variable "recorder_name" {
+  type    = string
+  default = "default"
+}
+
+variable "delivery_channel_name" {
+  type    = string
+  default = "default"
+}
+
+variable "delivery_frequency" {
+  type    = string
+  default = "TwentyFour_Hours"
+}
+
+variable "all_supported" {
+  type    = bool
+  default = true
+}
+
+variable "include_global_resource_types" {
+  type    = bool
+  default = true
+}
+
+variable "resource_types" {
+  type    = list(string)
+  default = []
+}
+
+variable "max_history" {
+  type    = number
+  default = 100000
+}
+
+variable "enable_s3_protection" {
+  type    = bool
+  default = true
+}
+
+variable "findings_bucket_arn" {
+  type    = string
+  default = null
+}
+
+variable "kms_key_arn" {
+  type    = string
+  default = null
+}
+
+variable "trail_name" {
+  description = "Name of the CloudTrail"
+  type        = string
+  default     = "org-cloudtrail"
+}
+
+variable "s3_log_bucket_name" {
+  description = "S3 bucket name for CloudTrail logs"
+  type        = string
+}
+
+variable "s3_log_bucket_force_destroy" {
+  description = "Force-destroy the log bucket on 'terraform destroy'"
+  type        = bool
+  default     = false
+}
+
+variable "is_organization_trail" {
+  description = "Whether to create an Organization Trail (requires AWS Organizations permissions)"
+  type        = bool
+  default     = false
+}
+
+variable "s3_data_buckets" {
+  description = "List of S3 bucket names to capture object-level data events for"
+  type        = list(string)
+  default     = []
+}
+
+variable "tags_cloudtrail" {
+  type        = map(string)
+  description = "Tags to apply"
+  default     = {}
+}
+
+variable "account_id" {
+  description = "AWS account id"
+  type        = string
+}
+
+variable "namespace_name" { 
+  type = string 
+}
+
+variable "db_name" { 
+  type = string 
+}
+
+variable "admin_username" { 
+  type = string 
+}
+
+variable "admin_user_password" {
+  type      = string
+  sensitive = true
+}
+
+variable "log_exports" { 
+  type = list(string) 
+  default = ["userlog","connectionlog","useractivitylog"] 
+}
+
+# Define multiple workgroups
+variable "workgroups" {
+  description = "List of workgroups with base RPU and expected daily runtime (hours)."
+  type = list(object({
+    name                  = string
+     namespace_name       = string
+    base_capacity         = number  
+    daily_runtime_hours   = number  
+}))
+}
+
+variable "tags_redshift" {
+  type    = map(string)
+  default = {}
+}
+
+variable "namespaces" {
+  description = "List of namespaces + workgroups for Redshift Serverless"
+  type = list(object({
+    name          = string
+    db_name       = string
+    base_capacity = number
+  }))
+}

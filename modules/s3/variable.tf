@@ -8,3 +8,21 @@ variable "environment" {
   type        = string
 }
 
+variable "config_name" { 
+  type = string 
+}
+
+variable "force_destroy" {
+  type    = bool
+  default = false
+}
+
+variable "account_id" {
+  description = "account id of the bucket"
+  type        = string
+}
+
+variable "logs_bucket_name" {
+  description = "Name of the S3 bucket"
+  type        = string
+}
