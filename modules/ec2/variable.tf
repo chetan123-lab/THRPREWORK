@@ -11,7 +11,7 @@ variable "instance_type" {
 }
 
 variable "subnet_id" {
-  type = string
+  type = list(string)
 }
 
 variable "sg_id" {
@@ -24,4 +24,10 @@ variable "key_name" {
 
 variable "instance_name" {
   type = string
+}
+
+variable "user_data" {
+  type        = string
+  description = "User data script to run when the instance launches"
+  default     = ""
 }

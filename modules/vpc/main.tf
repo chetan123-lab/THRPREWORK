@@ -1,19 +1,21 @@
 resource "aws_vpc" "example_vpc" {
-  cidr_block = var.cidr_block
+  cidr_block = var.vpc_cidr_block
   tags = {
     Name = var.vpc_name
   }
 }
 
-resource "aws_subnet" "example_subnet" {
-  vpc_id            = aws_vpc.example_vpc.id
-  cidr_block        = var.subnet_cidr_block
-  availability_zone = var.availability_zone
+resource "aws_subnet" "example_subnets" {
+  count                   = length(var.subnet_cidr_blocks)
+  vpc_id                  = aws_vpc.example_vpc.id
+  cidr_block              = element(var.subnet_cidr_blocks, count.index)
+  availability_zone       = element(var.availability_zones, count.index)
   map_public_ip_on_launch = true
   tags = {
-    Name = var.subnet_name
+    Name = element(var.subnet_names, count.index)
   }
 }
+
 
 resource "aws_internet_gateway" "example_igw" {
   vpc_id = aws_vpc.example_vpc.id
@@ -36,6 +38,7 @@ resource "aws_route" "example_route" {
 }
 
 resource "aws_route_table_association" "example_rta" {
-  subnet_id      = aws_subnet.example_subnet.id
+  count          = length(aws_subnet.example_subnets[*].id)
+  subnet_id      = element(aws_subnet.example_subnets[*].id, count.index)
   route_table_id = aws_route_table.example_rt.id
 }
