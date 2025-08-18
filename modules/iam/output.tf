@@ -23,3 +23,7 @@ output "redshift_analytics_role_arn" {
   value       = aws_iam_role.redshift_analytics.arn
 }
 
+output "glue_role_arn" {
+  description = "ARN of glue service"
+  value       = aws_iam_role.glue_role.arn
+}

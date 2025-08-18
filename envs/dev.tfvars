@@ -123,3 +123,36 @@ tags_redshift = {
   Env     = "dev"
   Owner   = "data-team"
 }
+
+crawlers = [
+  {
+    name        = "crawler-001"
+    role_arn    = "arn:aws:iam::221082206963:role/glue-crawler-role"
+    database    = "glue_db"
+    s3_targets  = ["s3://dev-landingzonefordev/"]
+    description = "Crawler for dataset 1"
+  }
+
+]
+
+databases = [
+  {
+    name        = "raw"
+    description = "Raw zone tables discovered by crawlers."
+    # location_uri can be used when integrating with Hive-style external locations; optional for Glue
+    parameters  = {
+      classification = "parquet"
+      owner          = "data-eng"
+    }
+  },
+  {
+    name        = "curated"
+    description = "Curated, business-ready datasets."
+    parameters  = {
+      domain = "finance"
+    }
+  }
+]
+
+objects_stored_per_month  = 338000
+access_requests_per_month = 10000000

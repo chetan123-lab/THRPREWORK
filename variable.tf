@@ -389,3 +389,39 @@ variable "namespaces" {
     base_capacity = number
   }))
 }
+
+variable "crawlers" {
+  description = "List of Glue Crawlers with configs"
+  type = list(object({
+    name        = string
+    role_arn    = string
+    database    = string
+    s3_targets  = list(string)
+    description = optional(string, "")
+  }))
+}
+
+variable "databases" {
+  description = "List of Glue databases to create."
+  type = list(object({
+    name         : string
+    description  : optional(string)
+    location_uri : optional(string)
+    parameters   : optional(map(string))
+  }))
+  default = []
+}
+
+# Usage visibility variables (do not create resources)
+variable "objects_stored_per_month" {
+  description = "Estimated number of Data Catalog objects stored per month (for cost visibility)."
+  type        = number
+  default     = 338000  
+}
+
+variable "access_requests_per_month" {
+  description = "Estimated number of Data Catalog access requests per month (for cost visibility)."
+  type        = number
+  default     = 10000000 
+}
+
