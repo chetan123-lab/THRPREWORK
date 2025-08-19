@@ -17,11 +17,6 @@ variable "force_destroy" {
   default = false
 }
 
-variable "account_id" {
-  description = "account id of the bucket"
-  type        = string
-}
-
 variable "logs_bucket_name" {
   description = "Name of the S3 bucket"
   type        = string

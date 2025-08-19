@@ -9,18 +9,6 @@ variable "secret_value" {
   sensitive   = true
 }
 
-variable "kms_key_id" {
-  type        = string
-  description = "The KMS key ID to use for encryption"
-  default     = null
-}
-
-variable "recovery_window" {
-  type        = number
-  description = "The recovery window in days"
-  default     = 30
-}
-
 variable "enable_rotation" {
   type        = bool
   description = "Whether to enable rotation"

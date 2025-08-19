@@ -1,8 +1,3 @@
-variable "name" {
-  type        = string
-  description = "Prefix / Name for tagging"
-}
-
 variable "recorder_name" {
   type        = string
   default     = "default"
@@ -37,12 +32,6 @@ variable "resource_types" {
   type        = list(string)
   default     = null
   description = "Specific resource types to record (if all_supported = false)"
-}
-
-variable "max_history" {
-  type        = number
-  default     = 100000
-  description = "Max number of configuration items to keep in history"
 }
 
 variable "bucket_id" {

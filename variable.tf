@@ -157,17 +157,6 @@ variable "secret_value" {
   sensitive   = true
 }
 
-variable "kms_key_id" {
-  type        = string
-  description = "The KMS key ID to use for encryption"
-}
-
-variable "recovery_window" {
-  type        = number
-  description = "The recovery window in days"
-  default     = 30
-}
-
 variable "key_description" {
   type        = string
   description = "The description of the KMS key"
@@ -193,12 +182,6 @@ variable "validation_method" {
   type        = string
   description = "The validation method for the certificate (DNS or EMAIL)"
   default     = "DNS"
-}
-
-variable "zone_id" {
-  type        = string
-  description = "The ID of the Route 53 zone"
-  default     = null
 }
 
 variable "notebook_instance_name" {
@@ -243,11 +226,6 @@ variable "config_name"   {
   type = string 
 }
 
-variable "create_sns" {
-  type    = bool
-  default = true
-}
-
 variable "sns_topic_name" {
   type    = string
   default = ""
@@ -283,24 +261,9 @@ variable "resource_types" {
   default = []
 }
 
-variable "max_history" {
-  type    = number
-  default = 100000
-}
-
 variable "enable_s3_protection" {
   type    = bool
   default = true
-}
-
-variable "findings_bucket_arn" {
-  type    = string
-  default = null
-}
-
-variable "kms_key_arn" {
-  type    = string
-  default = null
 }
 
 variable "trail_name" {
@@ -312,12 +275,6 @@ variable "trail_name" {
 variable "s3_log_bucket_name" {
   description = "S3 bucket name for CloudTrail logs"
   type        = string
-}
-
-variable "s3_log_bucket_force_destroy" {
-  description = "Force-destroy the log bucket on 'terraform destroy'"
-  type        = bool
-  default     = false
 }
 
 variable "is_organization_trail" {
@@ -341,14 +298,6 @@ variable "tags_cloudtrail" {
 variable "account_id" {
   description = "AWS account id"
   type        = string
-}
-
-variable "namespace_name" { 
-  type = string 
-}
-
-variable "db_name" { 
-  type = string 
 }
 
 variable "admin_username" { 

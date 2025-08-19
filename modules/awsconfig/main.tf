@@ -23,6 +23,7 @@ resource "aws_config_delivery_channel" "example" {
 
   # sns_topic_arn is an attribute, not a block
   sns_topic_arn = var.sns_topic_arn
+  depends_on = [aws_config_configuration_recorder.example]
 }
 
 # Recorder Status (enable)

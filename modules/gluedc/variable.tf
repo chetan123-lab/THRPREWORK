@@ -1,9 +1,3 @@
-variable "catalog_id" {
-  type        = string
-  default     = null
-  description = "Optional Data Catalog ID (account ID)."
-}
-
 variable "databases" {
   type = list(object({
     name         : string

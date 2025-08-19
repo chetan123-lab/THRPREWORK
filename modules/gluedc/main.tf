@@ -1,12 +1,3 @@
-locals {
-  usage_tags = {
-    "usage:gluedc:objects_per_month"  = tostring(var.objects_stored_per_month)
-    "usage:gluedc:requests_per_month" = tostring(var.access_requests_per_month)
-  }
-
-
-}
-
 # Create Glue Databases
 resource "aws_glue_catalog_database" "this" {
   for_each = { for db in var.databases : db.name => db }

@@ -8,9 +8,3 @@ variable "validation_method" {
   description = "The validation method for the certificate (DNS or EMAIL)"
   default     = "DNS"
 }
-
-variable "zone_id" {
-  type        = string
-  description = "The ID of the Route 53 zone"
-  default     = null
-}

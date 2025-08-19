@@ -4,7 +4,8 @@ terraform init -reconfigure -backend-config backend/backend-dev.hcl
 terraform workspace select dev || terraform workspace new dev
 terraform plan --var-file envs/dev.tfvars
 terraform apply --var-file envs/dev.tfvars --auto-approve
-terraform destroy --var-file envs/ dev.tfvars --auto-approve
+terraform destroy --var-file envs/dev.tfvars --auto-approve
+terraform refresh  --var-file envs/dev.tfvars
 
 #AWS Services:
 1) awsconfig
@@ -60,3 +61,33 @@ THRPREWORK/
 |--- Screenshots.docx
 |--- variable.tf
 
+#Steps to install tflint:
+choco install tflint
+tflint --version
+
+#Steps to scan tflint:
+tflint --recursive
+
+#Step to disable tflint rule:
+tflint --recursive --disable-rule terraform_required_version --disable-rule terraform_required_providers
+Below warnings rule disbled:
+1)
+Warning: Missing version constraint for provider "aws" in `required_providers` (terraform_required_providers)
+
+  on modules\vpc\main.tf line 40:
+  40: resource "aws_route_table_association" "example_rta" {
+
+Reference: https://github.com/terraform-linters/tflint-ruleset-terraform/blob/v0.12.0/docs/rules/terraform_required_providers.md
+
+2)
+Warning: terraform "required_version" attribute is required (terraform_required_version)
+
+  on modules\awsconfig\main.tf line 1:
+
+Reference: https://github.com/terraform-linters/tflint-ruleset-terraform/blob/v0.12.0/docs/rules/terraform_required_version.md
+
+#Steps to install checkov:
+pip install checkov
+
+#steps to scan checkov in current directory:
+checkov -d .

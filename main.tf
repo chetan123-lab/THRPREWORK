@@ -1,3 +1,12 @@
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
 provider "aws" {
   region = var.aws_region
 }
@@ -13,7 +22,6 @@ module "s3" {
   environment  =  var.environment
   bucket_name  =  var.bucket_name
   config_name =   var.config_name
-  account_id = var.account_id
   logs_bucket_name = var.s3_log_bucket_name
 }
 
@@ -71,8 +79,6 @@ module "gluec" {
 
 module "rs_srvless" {
   source = "./modules/rs-srvless"
-  namespace_name  = var.namespace_name
-  db_name = var.db_name
   admin_username = var.admin_username
   admin_user_password  = var.admin_user_password
   default_iam_role_arn = module.iam.redshift_default_role_arn
@@ -127,14 +133,12 @@ module "sns" {
 module "awsconfig" {
   source                   = "./modules/awsconfig"  
   
-  name                     = var.config_name
   recorder_name            = var.recorder_name
   delivery_channel_name    = var.delivery_channel_name
   delivery_frequency       = var.delivery_frequency
   all_supported            = var.all_supported
   include_global_resource_types = var.include_global_resource_types
   resource_types           = var.resource_types
-  max_history              = var.max_history
   bucket_id   = module.s3.bucket_name
   iam_role    = module.iam.iam_role_arn
   sns_topic_arn = module.sns.sns_topic_arn
@@ -171,8 +175,6 @@ module "secret_manager" {
   
   secret_name  = var.secret_name
   secret_value = var.secret_value
-  kms_key_id  = var.kms_key_id
-  recovery_window = var.recovery_window
 }
 
 module "certificate_manager" {
@@ -180,7 +182,7 @@ module "certificate_manager" {
   
   domain_name       = var.domain_name
   validation_method = var.validation_method
-  zone_id = var.zone_id
+ 
 }
 
 module "sagemaker" {

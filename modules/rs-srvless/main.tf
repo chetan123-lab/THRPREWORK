@@ -40,6 +40,13 @@ resource "aws_redshiftserverless_workgroup" "this" {
 
   tags = var.tags_redshift
   depends_on = [aws_redshiftserverless_namespace.this]
+    lifecycle {
+    ignore_changes = [
+      base_capacity,
+      config_parameter
+    ]
+  }
+
 }
 
 # Daily RPU-hours usage limit per workgroup

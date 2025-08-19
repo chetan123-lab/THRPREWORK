@@ -144,8 +144,6 @@ resource "aws_iam_role" "glue_role" {
   })
 }
 
-
-
 # Attach AWS managed policy for Redshift access
 resource "aws_iam_role_policy_attachment" "default_attach" {
   role       = aws_iam_role.redshift_default.name
