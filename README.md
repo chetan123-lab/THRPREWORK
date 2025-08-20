@@ -7,26 +7,25 @@ terraform apply --var-file envs/dev.tfvars --auto-approve
 terraform destroy --var-file envs/dev.tfvars --auto-approve
 terraform refresh  --var-file envs/dev.tfvars
 
-#AWS Services:
-1) awsconfig
-2) certificate_manager
-3) cloudtrail
-4) ec2
-5) glue crawler
-6) glue data catalog
-7) guardduty
-8) iam
-9) key_pair
-10) kms_keys
-11) lb
-12) redshift
-13) redshift serverless
-14) s3
-15) sagemaker
-16) secret_manager
-17) security_group
-18) sns
-19) vpc
+#AWS Services and description
+1. IAM Module: Manages IAM roles and policies.
+2. S3 Module: Configures S3 buckets for storage and logging.
+3. VPC Module: Creates a VPC with subnets, internet gateways, and route tables.
+4. Security Group Module: Defines security groups for EC2 instances.
+5. Key Pair Module: Manages SSH key pairs for EC2 instances.
+6. EC2 Module: Launches EC2 instances with specified configurations.
+7. Glue Modules (gluedc and gluec): Configures AWS Glue databases and crawlers.
+8. Redshift Serverless Module: Sets up Redshift Serverless workgroups and namespaces.
+9. CloudTrail Module: Enables CloudTrail for auditing and logging.
+10. KMS Keys Module: Manages KMS keys for encryption.
+11. GuardDuty Module: Configures GuardDuty for threat detection.
+12. SNS Module: Creates SNS topics for notifications.
+13. AWS Config Module: Sets up AWS Config for resource tracking and compliance.
+14. Gateway Load Balancer Module: Configures a Gateway Load Balancer.
+15. Redshift Module: Creates a Redshift cluster.
+16. Secrets Manager Module: Manages secrets in Secrets Manager.
+17. Certificate Manager Module: Configures SSL/TLS certificates.
+18. SageMaker Module: Sets up SageMaker notebook instances.
 
 Directory Structure:
 THRPREWORK/
@@ -39,19 +38,19 @@ THRPREWORK/
 |    |---  certificate_manager
 |    |---  cloudtrail
 |    |---  ec2
-|    |---  glue crawler
-|    |---  glue data catalog
-|    |---  guardduty
+|    |---  gluec
+|    |---  gluedc
+|    |---  guarduty
 |    |---  iam
 |    |---  key_pair
 |    |---  kms_keys
 |    |---  lb
-|    |---  redshift
+|    |---  rs
 |    |---  rs-srvless
 |    |---  s3
-|    |---  sagemaker
-|    |---  secret_manager
-|    |---  security_group
+|    |---  sgmkr
+|    |---  scrtmgr
+|    |---  sg
 |    |---  sns
 |    |---  vpc
 |--- scripts
@@ -60,6 +59,12 @@ THRPREWORK/
 |--- README.md
 |--- Screenshots.docx
 |--- variable.tf
+
+#Naming convention:
+environment-resourcename-region-purpose-name of company
+
+#Command to check userdata script:
+systemctl status nginx
 
 #Steps to install tflint:
 choco install tflint

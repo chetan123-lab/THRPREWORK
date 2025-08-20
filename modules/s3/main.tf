@@ -5,7 +5,7 @@ resource "aws_s3_bucket" "example" {
 }
 
 resource "aws_s3_bucket" "config_bucket" {
-  bucket        = "${var.config_name}-config-bucket"
+  bucket        = "${var.environment}-${var.config_name}"
   force_destroy = var.force_destroy
 
   tags = {

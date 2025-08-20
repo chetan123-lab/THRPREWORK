@@ -1,6 +1,5 @@
 # Variables — change to your names/region
-BUCKET_NAME="my-terraform-state-bucket-thr"
-DYNAMODB_TABLE="terraform-locks"
+BUCKET_NAME="dev-s3-us-west-2-tfstate-bucket-thr"
 AWS_REGION="us-west-2"
 
 # 1. Create S3 bucket for Terraform state

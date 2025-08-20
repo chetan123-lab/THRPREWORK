@@ -1,25 +1,34 @@
 variable "aws_region" {
-  description = "AWS region"
   type        = string
+  description = "AWS region"
   default     = "us-east-2"
 }
 
-variable "bucket_name" {
-  description = "S3 bucket name"
+variable "environment" {
   type        = string
-  default     = "my-dev-bucket"
+  description = "Environment name"
+  default     = "dev"
 }
 
-variable "environment" {
-  description = "Environment name"
+variable "bucket_name" {
   type        = string
-  default     = "dev"
+  description = "S3 bucket name"
+}
+
+variable "config_name"   { 
+  type = string 
+  description = "configuration naming"
+}
+
+variable "s3_log_bucket_name" {
+  type        = string
+  description = "S3 bucket name for CloudTrail logs"
 }
 
 variable "vpc_cidr_block" {
   type        = string
-  default     = "10.0.0.0/16"
   description = "The CIDR block for the VPC"
+  default     = "10.0.0.0/16"
 }
 
 variable "vpc_name" {
@@ -29,79 +38,188 @@ variable "vpc_name" {
 }
 
 variable "subnet_cidr_blocks" {
-  description = "List of subnet CIDRs"
   type        = list(string)
+  description = "List of subnet CIDRs"
+ 
 }
 
 variable "subnet_names" {
-  description = "List of subnet names"
   type        = list(string)
+  description = "List of subnet names"
 }
 
 variable "availability_zones" {
-  description = "List of AZs to use"
   type        = list(string)
+  description = "List of AZs to use"
 }
 
 
 variable "igw_name" {
   type        = string
-  default     = "example-igw"
   description = "The name of the internet gateway"
+  default     = "example-igw"
 }
 
 variable "route_table_name" {
   type        = string
-  default     = "example-rt"
   description = "The name of the route table"
+  default     = "example-rt"
 }
 
 variable "sg_name" {
   type        = string
-  default     = "example-sg"
   description = "The name of the security group"
+  default     = "example-sg"
 }
 
 variable "sg_description" {
   type        = string
-  default     = "Allow all inbound and outbound traffic"
   description = "The description of the security group"
+  default     = "Allow all inbound and outbound traffic"
 }
 
 variable "key_name" {
   type        = string
-  default     = "example-key"
   description = "The name of the key pair"
+  default     = "example-key"
 }
 
 variable "public_key_path" {
   type        = string
-  default     = "~/.ssh/id_rsa.pub"
   description = "The path to the public key file"
+  default     = "~/.ssh/id_rsa.pub"
 }
 
 variable "instance_count" {
   type        = number
-  default     = 2
   description = "The number of EC2 instances to create"
+  default     = 2  
 }
 
 variable "ami_id" {
   type        = string
-  default     = "ami-0c55b159cbfafe1f0"
   description = "The ID of the AMI"
+  default     = "ami-0c55b159cbfafe1f0"
 }
 
 variable "instance_type" {
   type        = string
-  default     = "t2.micro"
   description = "The type of the EC2 instance"
+  default     = "t2.micro"
+  
 }
 
 variable "instance_name" {
   type        = string
-  default     = "example-ec2"
   description = "The name of the EC2 instance"
+  default     = "example-ec2"  
+}
+
+variable "crawlers" {
+  type = list(object({
+    name        = string
+    role_arn    = string
+    database    = string
+    s3_targets  = list(string)
+    description = optional(string, "")
+  }))
+  description = "List of Glue Crawlers with configs"
+}
+
+variable "databases" {
+  type = list(object({
+    name         : string
+    description  : optional(string)
+    location_uri : optional(string)
+    parameters   : optional(map(string))
+  }))
+   description = "List of Glue databases to create."
+
+}
+
+variable "admin_username" { 
+  type = string 
+  description = "admin username for redshift"
+}
+
+variable "admin_user_password" {
+  type      = string
+  description = "admin password for redshift"
+  sensitive = true
+}
+
+variable "log_exports" { 
+  type = list(string) 
+  description = "list of exporting logs"
+  default = ["userlog","connectionlog","useractivitylog"] 
+}
+
+
+variable "workgroups" {
+  type = list(object({
+    name                  = string
+     namespace_name       = string
+    base_capacity         = number  
+    daily_runtime_hours   = number  
+}))
+  description = "List of workgroups with base RPU and expected daily runtime (hours)."
+}
+
+variable "tags_redshift" {
+  type    = map(string)
+  description = "tag for redshift"
+  default = {}
+}
+
+variable "namespaces" {
+  type = list(object({
+    name          = string
+    db_name       = string
+    base_capacity = number
+  }))
+  description = "List of namespaces + workgroups for Redshift Serverless"
+}
+
+variable "trail_name" { 
+  type        = string
+  description = "Name of the CloudTrail"
+  default     = "org-cloudtrail"
+}
+
+variable "is_organization_trail" {
+  type        = bool
+  description = "Whether to create an Organization Trail (requires AWS Organizations permissions)"
+  default     = false
+}
+
+variable "s3_data_buckets" {
+  type        = list(string)
+  description = "List of S3 bucket names to capture object-level data events for"
+  default     = []
+}
+
+variable "tags_cloudtrail" {
+  type        = map(string)
+  description = "Tags to apply"
+  default     = {}
+}
+
+variable "account_id" {
+  type        = string
+  description = "AWS account id"
+}
+
+
+variable "objects_stored_per_month" {
+  type        = number
+  description = "Estimated number of Data Catalog objects stored per month (for cost visibility)."
+  default     = 338000  
+}
+
+variable "access_requests_per_month" {
+  type        = number
+  description = "Estimated number of Data Catalog access requests per month (for cost visibility)."
+  default     = 10000000 
 }
 
 variable "cluster_identifier" {
@@ -196,8 +314,8 @@ variable "role_arn" {
 
 variable "instance_type_sagemaker" {
   type        = string
-  default     = "ml.t2.medium"
   description = "The type of the EC2 instance"
+  default     = "ml.t2.medium"
 }
 
 variable "tags" {
@@ -219,40 +337,42 @@ variable "name_of_sns" {
 variable "display_name" {
   type        = string
   description = "SNS display name (shown in console and emails)"
-  default     = null
-}
-
-variable "config_name"   { 
-  type = string 
 }
 
 variable "sns_topic_name" {
   type    = string
-  default = ""
+  description = "SNS topic naming"
 }
 
 variable "recorder_name" {
   type    = string
+  description = "AWS Config recorder"
   default = "default"
+
 }
 
 variable "delivery_channel_name" {
   type    = string
+  description = "AWS Config delivery channel"
   default = "default"
 }
 
 variable "delivery_frequency" {
   type    = string
+  description = "AWS Config delivery frequency"
   default = "TwentyFour_Hours"
+
 }
 
 variable "all_supported" {
   type    = bool
+  description = "AWS Config settings optional values"
   default = true
 }
 
 variable "include_global_resource_types" {
   type    = bool
+  description = "AWS Config settings optional values"
   default = true
 }
 
@@ -263,114 +383,11 @@ variable "resource_types" {
 
 variable "enable_s3_protection" {
   type    = bool
+  description = "enabling S3 protection"
   default = true
 }
 
-variable "trail_name" {
-  description = "Name of the CloudTrail"
-  type        = string
-  default     = "org-cloudtrail"
-}
 
-variable "s3_log_bucket_name" {
-  description = "S3 bucket name for CloudTrail logs"
-  type        = string
-}
 
-variable "is_organization_trail" {
-  description = "Whether to create an Organization Trail (requires AWS Organizations permissions)"
-  type        = bool
-  default     = false
-}
 
-variable "s3_data_buckets" {
-  description = "List of S3 bucket names to capture object-level data events for"
-  type        = list(string)
-  default     = []
-}
-
-variable "tags_cloudtrail" {
-  type        = map(string)
-  description = "Tags to apply"
-  default     = {}
-}
-
-variable "account_id" {
-  description = "AWS account id"
-  type        = string
-}
-
-variable "admin_username" { 
-  type = string 
-}
-
-variable "admin_user_password" {
-  type      = string
-  sensitive = true
-}
-
-variable "log_exports" { 
-  type = list(string) 
-  default = ["userlog","connectionlog","useractivitylog"] 
-}
-
-# Define multiple workgroups
-variable "workgroups" {
-  description = "List of workgroups with base RPU and expected daily runtime (hours)."
-  type = list(object({
-    name                  = string
-     namespace_name       = string
-    base_capacity         = number  
-    daily_runtime_hours   = number  
-}))
-}
-
-variable "tags_redshift" {
-  type    = map(string)
-  default = {}
-}
-
-variable "namespaces" {
-  description = "List of namespaces + workgroups for Redshift Serverless"
-  type = list(object({
-    name          = string
-    db_name       = string
-    base_capacity = number
-  }))
-}
-
-variable "crawlers" {
-  description = "List of Glue Crawlers with configs"
-  type = list(object({
-    name        = string
-    role_arn    = string
-    database    = string
-    s3_targets  = list(string)
-    description = optional(string, "")
-  }))
-}
-
-variable "databases" {
-  description = "List of Glue databases to create."
-  type = list(object({
-    name         : string
-    description  : optional(string)
-    location_uri : optional(string)
-    parameters   : optional(map(string))
-  }))
-  default = []
-}
-
-# Usage visibility variables (do not create resources)
-variable "objects_stored_per_month" {
-  description = "Estimated number of Data Catalog objects stored per month (for cost visibility)."
-  type        = number
-  default     = 338000  
-}
-
-variable "access_requests_per_month" {
-  description = "Estimated number of Data Catalog access requests per month (for cost visibility)."
-  type        = number
-  default     = 10000000 
-}
 

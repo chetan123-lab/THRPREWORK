@@ -8,4 +8,3 @@ resource "aws_redshift_cluster" "example" {
   publicly_accessible     = var.publicly_accessible
   skip_final_snapshot     = var.skip_final_snapshot
 }
-

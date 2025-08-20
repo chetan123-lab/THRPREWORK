@@ -11,22 +11,28 @@ provider "aws" {
   region = var.aws_region
 }
 
+#Manages IAM roles and policies.
 module "iam" {
   source = "./modules/iam"
+
   bucket_name = var.bucket_name
   environment = var.environment
 }
 
+#Configures S3 buckets for storage and logging.
 module "s3" {
   source = "./modules/s3"
+
   environment  =  var.environment
   bucket_name  =  var.bucket_name
   config_name =   var.config_name
   logs_bucket_name = var.s3_log_bucket_name
 }
 
+#Creates a VPC with subnets, internet gateways, and route tables.
 module "vpc" {
   source             = "./modules/vpc"
+
   vpc_cidr_block     = var.vpc_cidr_block   
   vpc_name           = var.vpc_name
   subnet_cidr_blocks = var.subnet_cidr_blocks
@@ -35,23 +41,29 @@ module "vpc" {
   igw_name           = var.igw_name
   route_table_name   = var.route_table_name
 }
-
+ 
+#Defines security groups for EC2 instances.
 module "security_group" {
-  source        = "./modules/security_group"
+  source        = "./modules/sg"
+
   sg_name       = var.sg_name
   sg_description = var.sg_description
   vpc_id        = module.vpc.vpc_id
   depends_on    = [module.vpc]
 }
 
+#Manages SSH key pairs for EC2 instances.
 module "key_pair" {
   source          = "./modules/key_pair"
+
   key_name        = var.key_name
   public_key_path = var.public_key_path
 }
 
+#Launches EC2 instances with specified configurations.
 module "ec2" {
   source        = "./modules/ec2"
+
   instance_count = var.instance_count
   ami_id         = var.ami_id
   instance_type  = var.instance_type
@@ -63,8 +75,10 @@ module "ec2" {
   depends_on     = [module.vpc, module.security_group, module.key_pair]
 }
 
+#Configures AWS Glue databases and crawlers.
 module "gluedc" {
   source = "./modules/gluedc"
+
   databases                      = var.databases
   objects_stored_per_month       = var.objects_stored_per_month
   access_requests_per_month      = var.access_requests_per_month
@@ -73,12 +87,15 @@ module "gluedc" {
 
 module "gluec" {
   source = "./modules/gluec"
+
   crawlers = var.crawlers
   depends_on = [module.iam]
 }
 
+#Sets up Redshift Serverless workgroups and namespaces.
 module "rs_srvless" {
   source = "./modules/rs-srvless"
+
   admin_username = var.admin_username
   admin_user_password  = var.admin_user_password
   default_iam_role_arn = module.iam.redshift_default_role_arn
@@ -91,6 +108,7 @@ module "rs_srvless" {
   depends_on = [module.iam]
 }
 
+#Enables CloudTrail for auditing and logging.
 module "cloudtrail" {
   source                    = "./modules/cloudtrail"
 
@@ -109,6 +127,7 @@ module "cloudtrail" {
   depends_on = [module.s3]
 }
 
+#Manages KMS keys for encryption.
 module "kms_keys" {
   source = "./modules/kms_keys"
  
@@ -117,11 +136,14 @@ module "kms_keys" {
   enable_key_rotation = var.enable_key_rotation
 }
 
-module "guardduty" {
-  source = "./modules/guardduty"
+#Configures GuardDuty for threat detection.
+module "guarduty" {
+  source = "./modules/guarduty"
+  
   enable_s3_protection = var.enable_s3_protection
 }
 
+#Creates SNS topics for notifications.
 module "sns" {
   source          = "./modules/sns"
 
@@ -130,6 +152,7 @@ module "sns" {
   display_name    = var.display_name
 }
 
+#Sets up AWS Config for resource tracking and compliance.
 module "awsconfig" {
   source                   = "./modules/awsconfig"  
   
@@ -145,7 +168,7 @@ module "awsconfig" {
   depends_on = [module.s3,module.iam,module.sns]
 }
 
-
+#Configures a Gateway Load Balancer.
 module "gwlb" {
   source              = "./modules/lb"
 
@@ -156,9 +179,9 @@ module "gwlb" {
 }
 
 
-
+#Creates a Redshift cluster.
 module "redshift" {
-  source = "./modules/redshift"
+  source = "./modules/rs"
   
   cluster_identifier = var.cluster_identifier
   database_name  = var.database_name
@@ -170,13 +193,15 @@ module "redshift" {
   skip_final_snapshot  = var.skip_final_snapshot
 }
 
+#Manages secrets in Secrets Manager.
 module "secret_manager" {
-  source = "./modules/secret_manager"
+  source = "./modules/scrtmgr"
   
   secret_name  = var.secret_name
   secret_value = var.secret_value
 }
 
+#Configures SSL/TLS certificates.
 module "certificate_manager" {
   source = "./modules/certificate_manager"
   
@@ -185,8 +210,9 @@ module "certificate_manager" {
  
 }
 
+#Sets up SageMaker notebook instances.
 module "sagemaker" {
-  source = "./modules/sagemaker"
+  source = "./modules/sgmkr"
   
   notebook_instance_name  =  var.notebook_instance_name
   instance_type_sagemaker = var.instance_type_sagemaker

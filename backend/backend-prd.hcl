@@ -1,4 +1,4 @@
-bucket        = "my-terraform-state-bucket-thr"
+bucket        = "prd-s3-us-west-2-tfstate-bucket-thr"
 key           = "terraform.tfstate"
 region        = "us-west-2"
 encrypt       = true

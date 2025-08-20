@@ -1,5 +1,5 @@
 resource "aws_iam_role" "s3_access_role" {
-  name        = "${var.environment}-s3-access-role"
+  name        = "${var.environment}-s3-access-role-thr"
   description = "Role for accessing S3 bucket ${var.bucket_name}"
 
   assume_role_policy = jsonencode({
@@ -17,7 +17,7 @@ resource "aws_iam_role" "s3_access_role" {
 }
 
 resource "aws_iam_policy" "s3_access_policy" {
-  name        = "${var.environment}-s3-access-policy"
+  name        = "${var.environment}-s3-access-policy-thr"
   description = "Policy for accessing S3 bucket ${var.bucket_name}"
 
   policy = jsonencode({
@@ -42,7 +42,7 @@ resource "aws_iam_policy" "s3_access_policy" {
 
 
 resource "aws_iam_role" "sagemaker_role" {
-  name        = "sagemaker-execution-role"
+  name        = "${var.environment}-sgmkr-thr"
   description = "Execution role for SageMaker"
 
   assume_role_policy = jsonencode({
@@ -60,7 +60,7 @@ resource "aws_iam_role" "sagemaker_role" {
 }
 
 resource "aws_iam_policy" "sagemaker_policy" {
-  name        = "sagemaker-execution-policy"
+  name        = "${var.environment}-sgmkrexecution-thr"
   description = "Policy for SageMaker execution role"
 
   policy = jsonencode({
@@ -93,7 +93,7 @@ resource "aws_iam_policy" "sagemaker_policy" {
 }
 
 resource "aws_iam_role" "config" {
-  name = "${var.environment}-aws-config-role"
+  name = "${var.environment}-aws-config-role-thr"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -110,7 +110,7 @@ resource "aws_iam_role" "config" {
 }
 
 resource "aws_iam_role" "redshift_default" {
-  name = "redshift-serverless-default"
+  name = "${var.environment}-rsrvless-thr"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
