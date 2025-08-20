@@ -33,7 +33,7 @@ node_type  = "ra3.xlplus"
 cluster_type  = "single-node"
 publicly_accessible = false
 skip_final_snapshot = true
-secret_name     = "dev-secret-us-west-2-thr-v1"
+secret_name     = "dev-secret-us-west-2-thr-v3"
 secret_value    = "my_secret_value"
 
 #KMS key Values
