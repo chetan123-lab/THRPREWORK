@@ -20,9 +20,13 @@ sg_description  = "Allow all inbound and outbound traffic"
 key_name = "example-key"
 public_key_path = "keys/my-key.pub"
 instance_count = 2
-ami_id = "ami-0987e9d53da324257"
-instance_type = "t2.micro"
+instance_type = "t3.micro"
 instance_name = "dev-ec2-us-west-2-thr"
+rhel_owner_id      = "309956199498"
+rhel_ami_name      = "RHEL-9*"
+virtualization_type = "hvm"
+architecture       = "x86_64"
+
 
 #redshift values
 cluster_identifier  = "dev-rs-us-west-2-thr"
@@ -95,6 +99,7 @@ tags_cloudtrail = {
   Owner       = "platform"
   Service     = "cloudtrail"
 }
+
 account_id = 221082206963
 
 #Redshift serverless configurations

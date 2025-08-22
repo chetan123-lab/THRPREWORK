@@ -65,7 +65,6 @@ module "ec2" {
   source        = "./modules/ec2"
 
   instance_count = var.instance_count
-  ami_id         = var.ami_id
   instance_type  = var.instance_type
   subnet_id      = module.vpc.subnet_ids
   sg_id          = module.security_group.sg_id
@@ -218,4 +217,3 @@ module "sagemaker" {
   instance_type_sagemaker = var.instance_type_sagemaker
   role_arn  = var.role_arn
 }
-

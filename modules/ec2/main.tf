@@ -1,7 +1,27 @@
+data "aws_ami" "latest_rhel" {
+  most_recent = true
+  owners      = [var.rhel_owner_id]
+
+  filter {
+    name   = "name"
+    values = [var.rhel_ami_name]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = [var.virtualization_type] 
+  }
+   
+  filter {
+    name   = "architecture"
+    values = [var.architecture]
+  }
+}
+
 resource "aws_instance" "example_ec2" {
 
   count         = var.instance_count
-  ami           = var.ami_id
+  ami           = data.aws_ami.latest_rhel.id
   instance_type = var.instance_type
   subnet_id     = var.subnet_id[0]
   vpc_security_group_ids = [var.sg_id]

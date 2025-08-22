@@ -205,7 +205,7 @@ variable "tags_cloudtrail" {
 }
 
 variable "account_id" {
-  type        = string
+  type        =  string
   description = "AWS account id"
 }
 
