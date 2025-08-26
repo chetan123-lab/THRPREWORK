@@ -26,6 +26,7 @@ terraform refresh  --var-file envs/dev.tfvars
 16. Secrets Manager Module: Manages secrets in Secrets Manager.
 17. Certificate Manager Module: Configures SSL/TLS certificates.
 18. SageMaker Module: Sets up SageMaker notebook instances.
+19. athena:For query to data
 
 Directory Structure:
 THRPREWORK/
@@ -34,6 +35,7 @@ THRPREWORK/
 |--- envs/
 |--- keys/
 |--- modules/
+     |---  athena
 |    |---  awsconfig
 |    |---  certificate_manager
 |    |---  cloudtrail
