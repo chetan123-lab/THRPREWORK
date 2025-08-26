@@ -173,3 +173,7 @@ databases = [
 
 objects_stored_per_month  = 338000
 access_requests_per_month = 10000000
+
+#Athena configuration
+athena_database_name = "dev_athena_db_thr"
+athena_bucket_name   = "dev-athena-bucket-thr"

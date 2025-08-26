@@ -387,7 +387,15 @@ variable "enable_s3_protection" {
   default = true
 }
 
+variable "athena_database_name" {
+  type        = string
+  description = "The name of the Athena database"
+}
 
+variable "athena_bucket_name" {
+  type        = string
+  description = "The name of the S3 bucket for Athena query results"
+}
 
 
 

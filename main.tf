@@ -52,6 +52,9 @@ module "security_group" {
   depends_on    = [module.vpc]
 }
 
+
+
+
 #Manages SSH key pairs for EC2 instances.
 module "key_pair" {
   source          = "./modules/key_pair"
@@ -216,4 +219,11 @@ module "sagemaker" {
   notebook_instance_name  =  var.notebook_instance_name
   instance_type_sagemaker = var.instance_type_sagemaker
   role_arn  = var.role_arn
+}
+
+#Athena configuration
+module "athena" {
+  source = "./modules/athena"
+  database_name = var.athena_database_name
+  bucket_name   = var.athena_bucket_name
 }
