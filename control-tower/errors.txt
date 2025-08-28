@@ -1,0 +1,40 @@
+ws_organizations_policy_attachment.security_ou_policy: Creating...
+aws_organizations_policy_attachment.security_ou_policy: Creation complete after 0s [id=ou-pidn-dxo1tk3r:p-6ydcgr0y]
+╷
+│ Error: creating S3 Bucket (aft-backend-292343825938-secondary-region): operation error S3: CreateBucket, https response error StatusCode: 403, RequestID: 8H70GY3TQJRHEQFN, HostID: hPRlQ31lcXTBcRdmt9tIBQ7J6O80flryJQYkXKZWyPRTn1O05/rQNSxVw6LAWl+dWdx8sCdijXc=, api error AccessDenied: User: arn:aws:sts::292343825938:assumed-role/AWSControlTowerExecution/AWSAFT-Session is not authorized to perform: s3:CreateBucket on resource: "arn:aws:s3:::aft-backend-292343825938-secondary-region" with an explicit deny in a service control policy
+│ 
+│   with module.aft.module.aft_backend.aws_s3_bucket.secondary-backend-bucket[0],
+│   on .terraform/modules/aft/modules/aft-backend/main.tf line 36, in resource "aws_s3_bucket" "secondary-backend-bucket":
+│   36: resource "aws_s3_bucket" "secondary-backend-bucket" {
+│ 
+╵
+╷
+│ Error: creating KMS Key: operation error KMS: CreateKey, https response error StatusCode: 400, RequestID: 3acc9d0c-eba1-4a71-a847-d645445471aa, api error AccessDeniedException: User: arn:aws:sts::292343825938:assumed-role/AWSControlTowerExecution/AWSAFT-Session is not authorized to perform: kms:TagResource because no identity-based policy allows the kms:TagResource action
+│ 
+│   with module.aft.module.aft_backend.aws_kms_key.encrypt-secondary-region[0],
+│   on .terraform/modules/aft/modules/aft-backend/main.tf line 405, in resource "aws_kms_key" "encrypt-secondary-region":
+│  405: resource "aws_kms_key" "encrypt-secondary-region" {
+│ 
+╵
+╷
+│ Error: creating CodeCommit Repository (aft-global-customizations): operation error CodeCommit: CreateRepository, https response error StatusCode: 400, RequestID: 7a2fb619-46cf-4ffd-8b1b-0599f53fcb10, OperationNotAllowedException: CreateRepository request is not allowed because there is no existing repository in this AWS account or AWS Organization
+│ 
+│   with module.aft.module.aft_code_repositories.aws_codecommit_repository.global_customizations[0],
+│   on .terraform/modules/aft/modules/aft-code-repositories/codecommit.tf line 4, in resource "aws_codecommit_repository" "global_customizations":
+│    4: resource "aws_codecommit_repository" "global_customizations" {
+│ 
+╵
+╷
+│ Error: creating CodeCommit Repository (aft-account-customizations): operation error CodeCommit: CreateRepository, https response error StatusCode: 400, RequestID: 6f970acb-9c01-4d34-aec4-e18c3d1c94fc, OperationNotAllowedException: CreateRepository request is not allowed because there is no existing repository in this AWS account or AWS Organization
+│ 
+│   with module.aft.module.aft_code_repositories.aws_codecommit_repository.account_customizations[0],
+│   on .terraform/modules/aft/modules/aft-code-repositories/codecommit.tf line 11, in resource "aws_codecommit_repository" "account_customizations":
+│   11: resource "aws_codecommit_repository" "account_customizations" {
+│ 
+╵
+╷
+│ Error: creating CodeCommit Repository (aft-account-request): operation error CodeCommit: CreateRepository, https response error StatusCode: 400, RequestID: a982bec7-29f2-4450-a90d-749071439b79, OperationNotAllowedException: CreateRepository request is not allowed because there is no existing repository in this AWS account or AWS Organization
+│ 
+│   with module.aft.module.aft_code_repositories.aws_codecommit_repository.account_request[0],
+│   on .terraform/modules/aft/modules/aft-code-repositories/codecommit.tf line 18, in resource "aws_codecommit_repository" "account_request":
+│   18: resource "aws_codecommit_repository" "account_request" {
