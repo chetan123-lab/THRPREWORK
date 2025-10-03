@@ -1,35 +1,77 @@
-Of course. This image contains configuration details for AWS IAM Identity Center (formerly known as AWS Single Sign-On or SSO). It shows that it is configured to use an external identity provider for authentication.
+parameters:
+  - name: environmentBranch
+    displayName: "Select environment branch"
+    type: string
+    default: dev
+    values:
+      - dev
+      - qa
+      - prod
 
-Here is a breakdown of the information and what it means:
+trigger: none   # disable auto trigger, you’ll select branch manually when running
 
-Summary
+variables:
+  TF_IN_AUTOMATION: true
+  TF_INPUT: 0
 
-This is the setup page for an AWS IAM Identity Center that is federated with an external identity provider (like Okta, Azure AD, Ping Identity, etc.) using the SAML 2.0 standard. Users will log in through their company's existing login portal, and AWS will trust that authentication to grant access to AWS accounts and applications.
+stages:
+  - stage: AFT
+    displayName: "Run AFT Terraform"
+    jobs:
+      - job: RunAFT
+        displayName: "AFT Terraform Execution"
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          # Checkout AFT repo with selected branch
+          - checkout: self
+            persistCredentials: true
+            clean: true
+            fetchDepth: 0
+            # Explicit branch checkout
+            ref: ${{ parameters.environmentBranch }}
 
----
+          - task: TerraformInstaller@1
+            inputs:
+              terraformVersion: '1.8.5'
 
-Detailed Breakdown of Each Field:
+          - script: terraform init -input=false
+            displayName: "Terraform Init - AFT"
 
-1. Identity Source: External identity provider
-   · This means AWS IAM Identity Center is not using its own internal user directory. Instead, it is connected to an external system (like Microsoft Entra ID (Azure AD), Okta, etc.) to authenticate users. Your users and groups are managed in that external system.
-2. Authentication method: SAML 2.0
-   · SAML 2.0 (Security Assertion Markup Language) is the standard protocol being used for federation. It allows the external identity provider to securely pass authentication and authorization data (a "SAML assertion") to AWS.
-3. AWS access portal URL: https://d-9066257d4e.awsapps.com/start
-   · This is the web URL you give to your users. They will go to this page to start the sign-in process. It will redirect them to your company's external identity provider to log in.
-4. Issuer URL: https://identitycenter.amazonaws.com/ssoins-722310b1b-4a77eb4
-   · This is a unique identifier for your AWS IAM Identity Center instance. The external identity provider uses this URL to know which AWS service it is communicating with. The ssoins- portion is your Identity Center instance ID.
-5. Provisioning method: SCIM
-   · SCIM (System for Cross-domain Identity Management) is a protocol that automatically provisions (creates, updates, deactivates) user and group information from the external identity provider into AWS IAM Identity Center. When a user is added or changed in your company's directory (e.g., Azure AD), that change is automatically pushed to AWS.
-6. Identity Store ID: d-9066257d4e
-   · This is a unique identifier for the identity store within AWS IAM Identity Center. It's used in AWS APIs and command-line tools to reference this specific directory where your users and groups are being synchronized.
+          - script: terraform validate
+            displayName: "Terraform Validate - AFT"
 
----
+          - script: terraform plan -out=tfplan
+            displayName: "Terraform Plan - AFT"
 
-Key Implications and What This Setup Is For:
+          - script: terraform apply -auto-approve tfplan
+            displayName: "Terraform Apply - AFT"
 
-· Centralized Management: User accounts and passwords are managed entirely in the external identity provider (e.g., your corporate Active Directory). You don't create users directly in AWS.
-· Single Sign-On (SSO): Users can sign in once to their company portal and then access AWS without having to enter another password.
-· Automated User Lifecycle: Because SCIM is enabled, if a user is deactivated in the external system, their access to AWS will be automatically removed, which is a critical security best practice.
-· Access to AWS: After logging in via the AWS access portal URL, users will see a dashboard listing all the AWS accounts and cloud applications they are permitted to access.
+  - stage: ControlTower
+    displayName: "Run Control Tower Terraform"
+    dependsOn: AFT
+    condition: succeeded()
+    jobs:
+      - job: RunControlTower
+        displayName: "Control Tower Terraform Execution"
+        pool:
+          vmImage: 'ubuntu-latest'
+        steps:
+          # Checkout Control Tower repo with the same selected branch
+          - checkout: git://YourProjectName/control-tower@${{ parameters.environmentBranch }}
 
-In short: This configuration connects a company's existing user directory to AWS, enabling secure, password-less, and centrally managed access to AWS resources.
+          - task: TerraformInstaller@1
+            inputs:
+              terraformVersion: '1.8.5'
+
+          - script: terraform init -input=false
+            displayName: "Terraform Init - Control Tower"
+
+          - script: terraform validate
+            displayName: "Terraform Validate - Control Tower"
+
+          - script: terraform plan -out=tfplan
+            displayName: "Terraform Plan - Control Tower"
+
+          - script: terraform apply -auto-approve tfplan
+            displayName: "Terraform Apply - Control Tower"
