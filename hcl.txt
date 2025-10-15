@@ -1,0 +1,381 @@
+# azure-pipelines.yml
+trigger:
+  branches:
+    include:
+    - main
+    - develop
+    - feature/*
+  paths:
+    exclude:
+    - README.md
+
+pr:
+  branches:
+    include:
+    - main
+    - develop
+  paths:
+    exclude:
+    - README.md
+
+variables:
+  TF_WORKDIR: '$(Build.SourcesDirectory)'
+  REPORT_DIR: '$(Build.SourcesDirectory)/reports'
+  - name: SKIP_EXECUTION
+    value: 'false'
+  - name: AUTO_APPLY
+    value: 'false'
+  - name: AUTO_DESTROY
+    value: 'false'
+
+stages:
+- stage: LintAndScan
+  displayName: "1. Terraform Lint & Security Scans"
+  jobs:
+  - job: run_scans
+    steps:
+    - checkout: self
+      clean: true
+      fetchDepth: 0
+
+    - checkout: terraform-modules
+      path: modules
+      clean: true
+      fetchDepth: 0
+
+    - bash: |
+        set -euo pipefail
+        echo "=== Directory Structure ==="
+        find "$(Build.SourcesDirectory)" -maxdepth 3 -type d | sort
+        echo "=== Terraform Files ==="
+        find "$(Build.SourcesDirectory)" -name ".tf" -o -name ".tfvars" | sort
+      displayName: "Show directory layout"
+
+    - bash: |
+        set -euo pipefail
+        terraform fmt -check -recursive -diff
+      displayName: "terraform fmt (check only)"
+      workingDirectory: "$(Build.SourcesDirectory)"
+
+    - bash: |
+        set -euo pipefail
+        terraform init -backend=false -reconfigure -input=false
+        terraform validate
+      displayName: "terraform init (no backend) + validate"
+      workingDirectory: "$(Build.SourcesDirectory)"
+
+    - bash: |
+        set -euo pipefail
+        mkdir -p "$(REPORT_DIR)"
+        tflint --init
+        tflint --recursive --format=default | tee "$(REPORT_DIR)/tflint.txt"
+        tflint --recursive --format=sarif > "$(REPORT_DIR)/tflint.sarif" || true
+      displayName: "tflint"
+      workingDirectory: "$(Build.SourcesDirectory)"
+
+    - bash: |
+        set -euo pipefail
+        mkdir -p "$(REPORT_DIR)"
+        TFSEC_EXIT=0
+        tfsec --no-color --no-module-downloads \
+          --format junit --out "$(REPORT_DIR)/tfsec-junit.xml" . || TFSEC_EXIT=$?
+        tfsec --no-color --no-module-downloads --format compact . || true
+        exit ${TFSEC_EXIT}
+      displayName: "tfsec"
+      workingDirectory: "$(Build.SourcesDirectory)"
+
+    - bash: |
+        set -euo pipefail
+        mkdir -p "$(REPORT_DIR)/checkov"
+        if command -v checkov >/dev/null 2>&1; then INVOKE="checkov";
+        elif command -v sudo >/dev/null 2>&1; then INVOKE="sudo checkov";
+        else echo 'ERROR: checkov not available'; exit 1; fi
+        $INVOKE -d . \
+          -o cli -o junitxml \
+          --output-file-path "$(REPORT_DIR)/checkov" || true
+      displayName: "checkov"
+      workingDirectory: "$(Build.SourcesDirectory)"
+
+    - bash: |
+        set -euo pipefail
+        mkdir -p "$(REPORT_DIR)"
+        if command -v detect-secrets >/dev/null 2>&1; then INVOKE="detect-secrets";
+        elif command -v sudo >/dev/null 2>&1; then INVOKE="sudo detect-secrets";
+        else echo "detect-secrets not installed; skipping"; exit 0; fi
+        if [ ! -f ".secrets.baseline" ]; then
+          $INVOKE scan --baseline .secrets.baseline --all-files
+        else
+          $INVOKE scan --all-files > "$(REPORT_DIR)/detect-secrets.json" || true
+        fi
+      displayName: "detect-secrets"
+      workingDirectory: "$(Build.SourcesDirectory)"
+
+    - task: PublishBuildArtifacts@1
+      displayName: "Publish scan reports"
+      inputs:
+        PathtoPublish: "$(REPORT_DIR)"
+        ArtifactName: "terraform-scan-reports"
+        publishLocation: "Container"
+
+- stage: Plan
+  displayName: "2. Terraform Plan"
+  dependsOn: LintAndScan
+  condition: and(succeeded(), ne(variables['SKIP_EXECUTION'], 'true'))
+  jobs:
+  - job: plan
+    steps:
+    - checkout: self
+      clean: true
+      
+    - checkout: terraform-modules
+      path: modules
+      clean: true
+      fetchDepth: 0
+
+    - bash: |
+        set -e
+        terraform version
+      displayName: "Verify Terraform present"
+
+    - bash: |
+        set -e
+        rm -rf "$(TF_WORKDIR)/.terraform" "$(TF_WORKDIR)/.terraform.lock.hcl" || true
+        echo "Cleaned Terraform cache"
+      displayName: "Clean .terraform cache"
+
+    - bash: |
+        set -euo pipefail
+        export TF_IN_AUTOMATION=1
+        export AWS_DEFAULT_REGION=$(BACKEND_REGION)
+        terraform -chdir="$(TF_WORKDIR)" init \
+          -backend-config="bucket=$(BACKEND_BUCKET)" \
+          -backend-config="key=$(BACKEND_KEY)" \
+          -backend-config="region=$(BACKEND_REGION)" \
+          -backend-config="encrypt=true" \
+          -backend-config="kms_key_id=$(BACKEND_KMS_ID)" \
+          -reconfigure -input=false
+        echo "Terraform init completed successfully"
+      displayName: "Terraform Init (S3 backend)"
+
+    - bash: |
+        set -euo pipefail
+        export TF_IN_AUTOMATION=1
+        terraform -chdir="$(TF_WORKDIR)" validate -no-color
+        echo "Terraform validate completed successfully"
+      displayName: "Terraform Validate"
+
+    - bash: |
+        set -euo pipefail
+        export TF_IN_AUTOMATION=1
+        terraform -chdir="$(TF_WORKDIR)" plan \
+          -var-file=prod.tfvars \
+          -refresh=true \
+          -input=false \
+          -no-color \
+          -out=tfplan
+        echo "Terraform plan completed successfully"
+      displayName: "Terraform Plan (prod)"
+
+    - bash: |
+        set -euo pipefail
+        mkdir -p "$(Build.ArtifactStagingDirectory)"
+        cp "$(TF_WORKDIR)/tfplan" "$(Build.ArtifactStagingDirectory)/tfplan"
+        echo "Plan file copied to staging directory"
+      displayName: "Copy plan to staging"
+
+    - publish: $(Build.ArtifactStagingDirectory)
+      displayName: "Publish plan artifact"
+      artifact: tfplan-$(Build.BuildId)
+
+- stage: Apply
+  displayName: "3. Terraform Apply"
+  dependsOn: Plan
+  condition: and(succeeded(), eq(variables['AUTO_APPLY'], 'true'))
+  jobs:
+  - deployment: apply
+    environment: 'production'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - checkout: self
+            clean: true
+
+          - checkout: terraform-modules
+            path: modules
+            clean: true
+
+          - download: current
+            artifact: tfplan-$(Build.BuildId)
+            displayName: "Download Plan Artifact"
+
+          - bash: |
+              set -e
+              cp "$(Pipeline.Workspace)/tfplan-$(Build.BuildId)/tfplan" "$(TF_WORKDIR)/tfplan"
+              echo "Plan file copied to working directory"
+            displayName: "Copy plan to working directory"
+
+          - bash: |
+              set -euo pipefail
+              export TF_IN_AUTOMATION=1
+              export AWS_DEFAULT_REGION=$(BACKEND_REGION)
+              terraform -chdir="$(TF_WORKDIR)" init \
+                -backend-config="bucket=$(BACKEND_BUCKET)" \
+                -backend-config="key=$(BACKEND_KEY)" \
+                -backend-config="region=$(BACKEND_REGION)" \
+                -backend-config="encrypt=true" \
+                -backend-config="kms_key_id=$(BACKEND_KMS_ID)" \
+                -reconfigure -input=false
+              echo "Terraform init completed for apply"
+            displayName: "Terraform Init (Apply Phase)"
+
+          - bash: |
+              set -euo pipefail
+              export TF_IN_AUTOMATION=1
+              
+              echo "=== Applying Terraform Plan ==="
+              terraform -chdir="$(TF_WORKDIR)" apply \
+                -input=false \
+                -auto-approve \
+                tfplan
+              
+              # Capture outputs
+              terraform -chdir="$(TF_WORKDIR)" output -json > terraform_outputs.json
+              echo "=== Terraform apply completed successfully ==="
+            displayName: "Terraform Apply"
+
+          - task: PublishBuildArtifacts@1
+            displayName: "Publish Terraform Outputs"
+            inputs:
+              PathtoPublish: '$(TF_WORKDIR)/terraform_outputs.json'
+              ArtifactName: 'terraform-outputs'
+              publishLocation: 'Container'
+
+          - bash: |
+              set -euo pipefail
+              # Clean up
+              rm -f "$(TF_WORKDIR)/tfplan"
+              echo "Plan file cleaned up"
+            displayName: "Cleanup Plan File"
+
+- stage: DestroyPlan
+  displayName: "4. Terraform Destroy Plan"
+  dependsOn: []
+  condition: and(succeeded(), eq(variables['DESTROY_MODE'], 'true'), ne(variables['SKIP_EXECUTION'], 'true'))
+  jobs:
+  - job: destroy_plan
+    steps:
+    - checkout: self
+      clean: true
+      
+    - checkout: terraform-modules
+      path: modules
+      clean: true
+      fetchDepth: 0
+
+    - bash: |
+        set -e
+        terraform version
+      displayName: "Verify Terraform present"
+
+    - bash: |
+        set -euo pipefail
+        export TF_IN_AUTOMATION=1
+        export AWS_DEFAULT_REGION=$(BACKEND_REGION)
+        terraform -chdir="$(TF_WORKDIR)" init \
+          -backend-config="bucket=$(BACKEND_BUCKET)" \
+          -backend-config="key=$(BACKEND_KEY)" \
+          -backend-config="region=$(BACKEND_REGION)" \
+          -backend-config="encrypt=true" \
+          -backend-config="kms_key_id=$(BACKEND_KMS_ID)" \
+          -reconfigure -input=false
+        echo "Terraform init completed for destroy plan"
+      displayName: "Terraform Init (Destroy)"
+
+    - bash: |
+        set -euo pipefail
+        export TF_IN_AUTOMATION=1
+        terraform -chdir="$(TF_WORKDIR)" plan \
+          -var-file=prod.tfvars \
+          -refresh=true \
+          -input=false \
+          -no-color \
+          -destroy \
+          -out=tfdestroyplan
+        echo "Terraform destroy plan completed successfully"
+      displayName: "Terraform Destroy Plan"
+
+    - bash: |
+        set -euo pipefail
+        mkdir -p "$(Build.ArtifactStagingDirectory)"
+        cp "$(TF_WORKDIR)/tfdestroyplan" "$(Build.ArtifactStagingDirectory)/tfdestroyplan"
+        echo "Destroy plan file copied to staging directory"
+      displayName: "Copy destroy plan to staging"
+
+    - publish: $(Build.ArtifactStagingDirectory)
+      displayName: "Publish destroy plan artifact"
+      artifact: tfdestroyplan-$(Build.BuildId)
+
+- stage: Destroy
+  displayName: "5. Terraform Destroy"
+  dependsOn: DestroyPlan
+  condition: and(succeeded(), eq(variables['AUTO_DESTROY'], 'true'), eq(variables['DESTROY_MODE'], 'true'))
+  jobs:
+  - deployment: destroy
+    environment: 'production-destroy'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - checkout: self
+            clean: true
+
+          - checkout: terraform-modules
+            path: modules
+            clean: true
+
+          - download: current
+            artifact: tfdestroyplan-$(Build.BuildId)
+            displayName: "Download Destroy Plan Artifact"
+
+          - bash: |
+              set -e
+              cp "$(Pipeline.Workspace)/tfdestroyplan-$(Build.BuildId)/tfdestroyplan" "$(TF_WORKDIR)/tfdestroyplan"
+              echo "Destroy plan file copied to working directory"
+            displayName: "Copy destroy plan to working directory"
+
+          - bash: |
+              set -euo pipefail
+              export TF_IN_AUTOMATION=1
+              export AWS_DEFAULT_REGION=$(BACKEND_REGION)
+              terraform -chdir="$(TF_WORKDIR)" init \
+                -backend-config="bucket=$(BACKEND_BUCKET)" \
+                -backend-config="key=$(BACKEND_KEY)" \
+                -backend-config="region=$(BACKEND_REGION)" \
+                -backend-config="encrypt=true" \
+                -backend-config="kms_key_id=$(BACKEND_KMS_ID)" \
+                -reconfigure -input=false
+              echo "Terraform init completed for destroy"
+            displayName: "Terraform Init (Destroy Phase)"
+
+          - bash: |
+              set -euo pipefail
+              export TF_IN_AUTOMATION=1
+              
+              echo "=== DESTROYING TERRAFORM INFRASTRUCTURE ==="
+              echo "WARNING: This will permanently delete all resources!"
+              terraform -chdir="$(TF_WORKDIR)" apply \
+                -input=false \
+                -auto-approve \
+                tfdestroyplan
+              
+              echo "=== Terraform destroy completed successfully ==="
+              echo "All infrastructure resources have been destroyed"
+            displayName: "Terraform Destroy"
+
+          - bash: |
+              set -euo pipefail
+              # Clean up
+              rm -f "$(TF_WORKDIR)/tfdestroyplan"
+              echo "Destroy plan file cleaned up"
+            displayName: "Cleanup Destroy Plan File"
