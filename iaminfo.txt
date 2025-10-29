@@ -1,0 +1,593 @@
+=terraform-modules/modules/iam/
+
+versions.tf
+
+hcl
+terraform {
+  required_version = ">= 1.0"
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = ">= 5.0"
+    }
+  }
+}
+
+
+variables.tf
+
+hcl
+variable "name" {
+  description = "Name prefix for IAM resources"
+  type        = string
+}
+
+variable "tags" {
+  description = "Tags to apply to all resources"
+  type        = map(string)
+  default     = {}
+}
+
+# IAM Policy Variables
+variable "policies" {
+  description = "Map of IAM policies to create"
+  type = map(object({
+    description = optional(string)
+    path        = optional(string, "/")
+    policy      = string
+  }))
+  default = {}
+}
+
+# IAM Role Variables
+variable "roles" {
+  description = "Map of IAM roles to create"
+  type = map(object({
+    description           = optional(string)
+    path                  = optional(string, "/")
+    max_session_duration  = optional(number, 3600)
+    permissions_boundary  = optional(string)
+    assume_role_policy    = string
+    force_detach_policies = optional(bool, false)
+    attached_policies     = optional(list(string), [])
+  }))
+  default = {}
+}
+
+# IAM Group Variables
+variable "groups" {
+  description = "Map of IAM groups to create"
+  type = map(object({
+    path            = optional(string, "/")
+    attached_policies = optional(list(string), [])
+  }))
+  default = {}
+}
+
+# IAM User Variables
+variable "users" {
+  description = "Map of IAM users to create"
+  type = map(object({
+    path          = optional(string, "/")
+    force_destroy = optional(bool, false)
+    groups        = optional(list(string), [])
+  }))
+  default = {}
+}
+
+
+main.tf
+
+hcl
+# IAM Policies
+resource "aws_iam_policy" "this" {
+  for_each = var.policies
+
+  name        = "${var.name}-${each.key}"
+  description = try(each.value.description, "IAM Policy for ${each.key}")
+  path        = try(each.value.path, "/")
+  policy      = each.value.policy
+
+  tags = var.tags
+}
+
+# IAM Roles
+resource "aws_iam_role" "this" {
+  for_each = var.roles
+
+  name                 = "${var.name}-${each.key}"
+  description          = try(each.value.description, "IAM Role for ${each.key}")
+  path                 = try(each.value.path, "/")
+  max_session_duration = try(each.value.max_session_duration, 3600)
+  permissions_boundary = try(each.value.permissions_boundary, null)
+
+  assume_role_policy    = each.value.assume_role_policy
+  force_detach_policies = try(each.value.force_detach_policies, false)
+
+  tags = var.tags
+}
+
+# IAM Policy Attachments to Roles
+resource "aws_iam_role_policy_attachment" "role_policies" {
+  for_each = {
+    for role_attachment in local.role_policy_attachments : "${role_attachment.role}-${role_attachment.policy}" => role_attachment
+    if contains(keys(var.roles), role_attachment.role)
+  }
+
+  role       = aws_iam_role.this[each.value.role].name
+  policy_arn = each.value.policy_arn
+}
+
+# IAM Groups
+resource "aws_iam_group" "this" {
+  for_each = var.groups
+
+  name = "${var.name}-${each.key}"
+  path = try(each.value.path, "/")
+}
+
+# IAM Group Policy Attachments
+resource "aws_iam_group_policy_attachment" "group_policies" {
+  for_each = {
+    for group_attachment in local.group_policy_attachments : "${group_attachment.group}-${group_attachment.policy}" => group_attachment
+    if contains(keys(var.groups), group_attachment.group)
+  }
+
+  group      = aws_iam_group.this[each.value.group].name
+  policy_arn = each.value.policy_arn
+}
+
+# IAM Users
+resource "aws_iam_user" "this" {
+  for_each = var.users
+
+  name          = "${var.name}-${each.key}"
+  path          = try(each.value.path, "/")
+  force_destroy = try(each.value.force_destroy, false)
+
+  tags = var.tags
+}
+
+# IAM User Group Memberships
+resource "aws_iam_user_group_membership" "this" {
+  for_each = {
+    for user in keys(var.users) : user => user
+    if length(try(var.users[user].groups, [])) > 0
+  }
+
+  user   = aws_iam_user.this[each.value].name
+  groups = [for group in var.users[each.value].groups : aws_iam_group.this[group].name]
+
+  depends_on = [
+    aws_iam_user.this,
+    aws_iam_group.this
+  ]
+}
+
+
+Add this to main.tf (at the top) for local transformations:
+
+hcl
+# Local transformations for policy attachments
+locals {
+  # Create role policy attachments list
+  role_policy_attachments = flatten([
+    for role_name, role_config in var.roles : [
+      for policy in try(role_config.attached_policies, []) : {
+        role       = role_name
+        policy     = policy
+        policy_arn = startswith(policy, "arn:aws:iam::") ? policy : aws_iam_policy.this[policy].arn
+      }
+    ]
+  ])
+
+  # Create group policy attachments list
+  group_policy_attachments = flatten([
+    for group_name, group_config in var.groups : [
+      for policy in try(group_config.attached_policies, []) : {
+        group      = group_name
+        policy     = policy
+        policy_arn = startswith(policy, "arn:aws:iam::") ? policy : aws_iam_policy.this[policy].arn
+      }
+    ]
+  ])
+}
+
+
+outputs.tf
+
+hcl
+output "policies" {
+  description = "Map of IAM policy attributes"
+  value = {
+    for k, policy in aws_iam_policy.this : k => {
+      arn    = policy.arn
+      name   = policy.name
+      id     = policy.id
+      policy = policy.policy
+    }
+  }
+}
+
+output "roles" {
+  description = "Map of IAM role attributes"
+  value = {
+    for k, role in aws_iam_role.this : k => {
+      arn        = role.arn
+      name       = role.name
+      id         = role.id
+      unique_id  = role.unique_id
+    }
+  }
+}
+
+output "groups" {
+  description = "Map of IAM group attributes"
+  value = {
+    for k, group in aws_iam_group.this : k => {
+      arn  = group.arn
+      name = group.name
+      id   = group.id
+    }
+  }
+}
+
+output "users" {
+  description = "Map of IAM user attributes"
+  value = {
+    for k, user in aws_iam_user.this : k => {
+      arn  = user.arn
+      name = user.name
+      id   = user.id
+    }
+  }
+}
+
+
+terraform-infrastructure/modules/iam/
+
+main.tf
+
+hcl
+module "iam" {
+  source = "git::https://github.com/your-org/terraform-modules.git//modules/iam?ref=v1.0.0"
+
+  name = var.name
+  tags = var.tags
+
+  # Pass through all IAM configurations
+  policies = var.policies
+  roles    = var.roles
+  groups   = var.groups
+  users    = var.users
+}
+
+
+variables.tf
+
+hcl
+variable "name" {
+  description = "Name prefix for IAM resources"
+  type        = string
+}
+
+variable "tags" {
+  description = "Tags to apply to all resources"
+  type        = map(string)
+  default     = {}
+}
+
+variable "policies" {
+  description = "Map of IAM policies to create"
+  type = map(object({
+    description = optional(string)
+    path        = optional(string, "/")
+    policy      = string
+  }))
+  default = {}
+}
+
+variable "roles" {
+  description = "Map of IAM roles to create"
+  type = map(object({
+    description           = optional(string)
+    path                  = optional(string, "/")
+    max_session_duration  = optional(number, 3600)
+    permissions_boundary  = optional(string)
+    assume_role_policy    = string
+    force_detach_policies = optional(bool, false)
+    attached_policies     = optional(list(string), [])
+  }))
+  default = {}
+}
+
+variable "groups" {
+  description = "Map of IAM groups to create"
+  type = map(object({
+    path            = optional(string, "/")
+    attached_policies = optional(list(string), [])
+  }))
+  default = {}
+}
+
+variable "users" {
+  description = "Map of IAM users to create"
+  type = map(object({
+    path          = optional(string, "/")
+    force_destroy = optional(bool, false)
+    groups        = optional(list(string), [])
+  }))
+  default = {}
+}
+
+
+outputs.tf
+
+hcl
+output "policies" {
+  description = "Map of IAM policy attributes"
+  value       = module.iam.policies
+}
+
+output "roles" {
+  description = "Map of IAM role attributes"
+  value       = module.iam.roles
+}
+
+output "groups" {
+  description = "Map of IAM group attributes"
+  value       = module.iam.groups
+}
+
+output "users" {
+  description = "Map of IAM user attributes"
+  value       = module.iam.users
+}
+
+
+Example Usage in terraform-infrastructure
+
+dev.tfvars
+
+hcl
+name = "dev-iam"
+
+tags = {
+  Environment = "dev"
+  Project     = "my-project"
+}
+
+policies = {
+  s3-read-only = {
+    description = "S3 read only policy"
+    policy = jsonencode({
+      Version = "2012-10-17"
+      Statement = [
+        {
+          Effect = "Allow"
+          Action = [
+            "s3:Get*",
+            "s3:List*"
+          ]
+          Resource = "*"
+        }
+      ]
+    })
+  }
+}
+
+roles = {
+  ec2-read-only = {
+    description = "Role for EC2 instances with read-only access"
+    assume_role_policy = jsonencode({
+      Version = "2012-10-17"
+      Statement = [
+        {
+          Effect = "Allow"
+          Principal = {
+            Service = "ec2.amazonaws.com"
+          }
+          Action = "sts:AssumeRole"
+        }
+      ]
+    })
+    attached_policies = ["s3-read-only"]
+  }
+}
+
+groups = {
+  developers = {
+    path = "/"
+    attached_policies = ["s3-read-only"]
+  }
+}
+
+users = {
+  developer = {
+    path = "/developers/"
+    groups = ["developers"]
+  }
+}
+
+
+name = "dev-iam"
+
+tags = {
+  Environment = "dev"
+  Project     = "data-warehouse"
+  Team        = "data-engineering"
+}
+
+# IAM Policies for Redshift Serverless
+policies = {
+  redshift-s3-read-access = {
+    description = "S3 read access for Redshift Serverless - ListBucket, GetObject, GetBucketLocation"
+    policy = jsonencode({
+      Version = "2012-10-17"
+      Statement = [
+        {
+          Effect = "Allow"
+          Action = [
+            "s3:ListBucket",
+            "s3:GetObject",
+            "s3:GetBucketLocation"
+          ]
+          Resource = [
+            "arn:aws:s3:::redshift-data-dev",
+            "arn:aws:s3:::redshift-data-dev/*",
+            "arn:aws:s3:::data-lake-dev",
+            "arn:aws:s3:::data-lake-dev/*",
+            "arn:aws:s3:::source-data-dev",
+            "arn:aws:s3:::source-data-dev/*"
+          ]
+        }
+      ]
+    })
+  },
+
+  redshift-spectrum-access = {
+    description = "S3 access for Redshift Spectrum external tables"
+    policy = jsonencode({
+      Version = "2012-10-17"
+      Statement = [
+        {
+          Effect = "Allow"
+          Action = [
+            "s3:ListBucket",
+            "s3:GetObject",
+            "s3:GetBucketLocation"
+          ]
+          Resource = [
+            "arn:aws:s3:::spectrum-data-dev",
+            "arn:aws:s3:::spectrum-data-dev/*",
+            "arn:aws:s3:::external-tables-dev",
+            "arn:aws:s3:::external-tables-dev/*"
+          ]
+        }
+      ]
+    })
+  },
+
+  # IAM Policies for Athena
+  athena-s3-read-access = {
+    description = "S3 read access for Athena - ListBucket, GetObject, GetBucketLocation"
+    policy = jsonencode({
+      Version = "2012-10-17"
+      Statement = [
+        {
+          Effect = "Allow"
+          Action = [
+            "s3:ListBucket",
+            "s3:GetObject",
+            "s3:GetBucketLocation"
+          ]
+          Resource = [
+            "arn:aws:s3:::athena-source-data-dev",
+            "arn:aws:s3:::athena-source-data-dev/*",
+            "arn:aws:s3:::analytics-data-dev",
+            "arn:aws:s3:::analytics-data-dev/*"
+          ]
+        }
+      ]
+    })
+  },
+
+  athena-query-results-access = {
+    description = "S3 access for Athena query results"
+    policy = jsonencode({
+      Version = "2012-10-17"
+      Statement = [
+        {
+          Effect = "Allow"
+          Action = [
+            "s3:ListBucket",
+            "s3:GetObject",
+            "s3:GetBucketLocation"
+          ]
+          Resource = [
+            "arn:aws:s3:::athena-query-results-dev",
+            "arn:aws:s3:::athena-query-results-dev/*",
+            "arn:aws:s3:::aws-athena-query-results-*",
+            "arn:aws:s3:::aws-athena-query-results-*/*"
+          ]
+        }
+      ]
+    })
+  }
+}
+
+# IAM Roles for Redshift Serverless
+roles = {
+  redshift-serverless-role = {
+    description = "Role for Redshift Serverless to access S3 data"
+    assume_role_policy = jsonencode({
+      Version = "2012-10-17"
+      Statement = [
+        {
+          Effect = "Allow"
+          Principal = {
+            Service = "redshift-serverless.amazonaws.com"
+          }
+          Action = "sts:AssumeRole"
+        }
+      ]
+    })
+    attached_policies = ["redshift-s3-read-access", "redshift-spectrum-access"]
+  },
+
+  redshift-serverless-spectrum-role = {
+    description = "Role for Redshift Serverless Spectrum operations"
+    assume_role_policy = jsonencode({
+      Version = "2012-10-17"
+      Statement = [
+        {
+          Effect = "Allow"
+          Principal = {
+            Service = "redshift-serverless.amazonaws.com"
+          }
+          Action = "sts:AssumeRole"
+        }
+      ]
+    })
+    attached_policies = ["redshift-spectrum-access"]
+  }
+}
+
+# IAM Roles for Athena
+roles = {
+  athena-workgroup-role = {
+    description = "Role for Athena workgroup to read S3 data"
+    assume_role_policy = jsonencode({
+      Version = "2012-10-17"
+      Statement = [
+        {
+          Effect = "Allow"
+          Principal = {
+            Service = "athena.amazonaws.com"
+          }
+          Action = "sts:AssumeRole"
+        }
+      ]
+    })
+    attached_policies = ["athena-s3-read-access", "athena-query-results-access"]
+  },
+
+  athena-query-role = {
+    description = "Role for Athena queries to access S3 data and results"
+    assume_role_policy = jsonencode({
+      Version = "2012-10-17"
+      Statement = [
+        {
+          Effect = "Allow"
+          Principal = {
+            Service = "athena.amazonaws.com"
+          }
+          Action = "sts:AssumeRole"
+        }
+      ]
+    })
+    attached_policies = ["athena-s3-read-access"]
+  }
+}
+
+
