@@ -1,0 +1,328 @@
+Here's your updated Azure DevOps YAML file and Terraform code reference:
+
+Updated Azure DevOps YAML File
+
+yaml
+name: $(Date::yyyyMMdd)$(Rev::r)
+trigger:
+  branches:
+    include:
+    - dev
+    - feature/*
+  paths:
+    include:
+    - redshift-serverless/**
+    - azure-pipelines.yml
+pr:
+  branches:
+    include:
+    - main
+  paths:
+    include:
+    - redshift-serverless/**
+pool:
+  name: DataIntegrationsInfraIaC-pool
+resources:
+  repositories:
+    - repository: terraform-modules
+      type: git
+      name: DataIntegrationsInfraIaC/terraform-modules
+      ref: refs/heads/feature/iam-redshift-test
+
+variables:
+  - group: redshift-serverless-secrets  # Reference the variable group
+  REPORT_DIR: "${Agent.TempDirectory}/reports"
+  PLAN_DIR: "${Agent.TempDirectory}/plan"
+  TF_VERSION: '1.13.3'
+  ENV: "dev"
+  WORKLOAD: "redshift-serverless"
+
+  # Backend configuration
+  BACKEND_BUCKET: "tf-backend-kt"
+  BACKEND_KEY: "dev/redshift-serverless/terraform.tfstate"
+  BACKEND_REGION: "us-east-1"
+  BACKEND_KMS_ID: "arn:aws:kms:us-east-1:129257836240:key/27393987-7c43-44de-8cff-9e20270fb895"
+
+  # Working directory
+  TF_WORKDIR: "${Build.SourcesDirectory}/terraform-infrastructure/${WORKLOAD}"
+
+stages:
+# STAGE 1: Lint and Security Scans
+- stage: LintAndScan
+  displayName: "Lint & Security Scan"
+  jobs:
+    - job: SecurityScans
+      displayName: "Run security scans and linting"
+      steps:
+        # ... (previous lint and scan steps remain the same)
+        - bash: |
+            set -euo pipefail
+            echo "=== Testing secret variable access ==="
+            echo "Admin password length: ${#admin_password}"
+          displayName: "Verify secret access"
+          env:
+            admin_password: $(admin_password)
+
+# STAGE 2: Terraform Plan
+- stage: Plan
+  displayName: "Terraform Plan"
+  dependsOn: LintAndScan
+  condition: succeeded()
+  jobs:
+    - job: TerraformPlan
+      displayName: "Generate Terraform plan"
+      steps:
+        - checkout: self
+          clean: true
+          displayName: "Checkout terraform-infrastructure"
+
+        - checkout: terraform-modules
+          path: s/terraform-modules
+          clean: true
+          displayName: "Checkout terraform-modules"
+
+        - task: AWSCLI@1
+          displayName: "Verify AWS identity"
+          inputs:
+            awsCredentials: "tbn-cxo-awscloudservices-dev-iam"
+            regionName: "$(BACKEND_REGION)"
+            awsCommand: "sts"
+            awsSubCommand: "get-caller-identity"
+
+        - task: AWSShellScript@1
+          displayName: "Terraform init + plan"
+          inputs:
+            awsCredentials: "tbn-cxo-awscloudservices-dev-iam"
+            regionName: "$(BACKEND_REGION)"
+            scriptType: inline
+            inlineScript: |
+              set -exo pipefail
+              export TF_IN_AUTOMATION=1
+
+              mkdir -p "$(PLAN_DIR)"
+
+              cd "${TF_WORKDIR}"
+              echo "=== Cleaning previous state ==="
+              rm -rf .terraform .terraform.lock.hcl || true
+
+              echo ""
+              echo "=== Terraform Init ==="
+              terraform init \
+                -backend-config="bucket=$(BACKEND_BUCKET)" \
+                -backend-config="key=$(BACKEND_KEY)" \
+                -backend-config="region=$(BACKEND_REGION)" \
+                -backend-config="encrypt=true" \
+                -backend-config="kms_key_id=$(BACKEND_KMS_ID)" \
+                -reconfigure \
+                -input=false \
+                -no-color
+
+              echo ""
+              echo "=== Terraform Plan ==="
+              terraform plan \
+                -var="admin_password=${admin_password}" \
+                -var-file=dev.tfvars \
+                -input=false \
+                -no-color \
+                -out="$(PLAN_DIR)/tfplan" \
+                | tee "$(PLAN_DIR)/plan-output.txt"
+
+              echo ""
+              echo "=== Plan Summary ==="
+              terraform show -no-color "$(PLAN_DIR)/tfplan" | tee "$(PLAN_DIR)/plan-readable.txt"
+            env:
+              admin_password: $(admin_password)  # Pass the secret as environment variable
+
+        - task: PublishBuildArtifacts@1
+          displayName: "Publish Terraform plan"
+          inputs:
+            PathtoPublish: "$(PLAN_DIR)"
+            ArtifactName: "terraform-plan-$(ENV)-$(WORKLOAD)"
+            publishLocation: "Container"
+
+        - bash: |
+            set -euo pipefail
+            echo "=== Plan Summary ==="
+            if [ -f "$(PLAN_DIR)/plan-output.txt" ]; then
+              grep -E "Plan: |No changes" "$(PLAN_DIR)/plan-output.txt" || true
+            fi
+          displayName: "Display plan summary"
+
+# STAGE 3: Manual Approval
+- stage: Approval
+  displayName: "Manual Approval"
+  jobs:
+    - job: waitForValidation
+      displayName: "Wait for manual approval"
+      pool: server
+      timeoutInMinutes: 1440 # 24 hours
+      steps:
+        - task: ManualValidation@0
+          displayName: "Review and approve Terraform plan"
+          inputs:
+            notifyUsers: |
+              atul.pandit@thr.com
+              meera.harinarayanan@thr.com
+            instructions: |
+              Please review the Terraform plan in the artifacts before approving.
+              Environment: $(ENV)
+              Workload: $(WORKLOAD)
+              Review the plan artifact: terraform-plan-$(ENV)-$(WORKLOAD)
+            onTimeout: "reject"
+
+# STAGE 4: Terraform Apply
+- stage: Apply
+  displayName: "Terraform Apply"
+  dependsOn: Approval
+  jobs:
+    - job: TerraformApply
+      displayName: "Apply Terraform changes"
+      steps:
+        - checkout: self
+          clean: true
+          displayName: "Checkout terraform-infrastructure"
+
+        - checkout: terraform-modules
+          path: s/terraform-modules
+          clean: true
+          displayName: "Checkout terraform-modules"
+
+        - task: AWSCLI@1
+          displayName: "Verify AWS identity"
+          inputs:
+            awsCredentials: "tbn-cxo-awscloudservices-dev-iam"
+            regionName: "$(BACKEND_REGION)"
+            awsCommand: "sts"
+            awsSubCommand: "get-caller-identity"
+
+        - task: AWSShellScript@1
+          displayName: "Terraform apply"
+          inputs:
+            awsCredentials: "tbn-cxo-awscloudservices-dev-iam"
+            regionName: "$(BACKEND_REGION)"
+            scriptType: inline
+            inlineScript: |
+              set -euo pipefail
+              export TF_IN_AUTOMATION=1
+
+              cd "$(TF_WORKDIR)"
+
+              echo "=== Cleaning previous state ==="
+              rm -rf .terraform .terraform.lock.hcl || true
+
+              echo ""
+              echo "=== Terraform Init ==="
+              terraform init \
+                -backend-config="bucket=$(BACKEND_BUCKET)" \
+                -backend-config="key=$(BACKEND_KEY)" \
+                -backend-config="region=$(BACKEND_REGION)" \
+                -backend-config="encrypt=true" \
+                -backend-config="kms_key_id=$(BACKEND_KMS_ID)" \
+                -reconfigure \
+                -input=false \
+                -no-color
+
+              echo ""
+              echo "=== Terraform Apply ==="
+              terraform apply \
+                -var="admin_password=${admin_password}" \
+                -var-file=dev.tfvars \
+                -input=false \
+                -no-color \
+                -auto-approve
+
+              echo ""
+              echo "=== Terraform Output ==="
+              terraform output -no-color
+            env:
+              admin_password: $(admin_password)  # Pass the secret as environment variable
+
+        - task: AWSShellScript@1
+          displayName: "Capture outputs"
+          inputs:
+            awsCredentials: "tbn-cxo-awscloudservices-dev-iam"
+            regionName: "$(BACKEND_REGION)"
+            scriptType: inline
+            inlineScript: |
+              set -euo pipefail
+              cd "${TF_WORKDIR}"
+
+              echo "=== Infrastructure Outputs ==="
+              terraform output -json > "${Agent.TempDirectory}/outputs.json" || true
+              terraform output || true
+
+              echo ""
+              echo "=== Deployment Summary ==="
+              echo "Account: 286117886097 (TNR EDM AWS Dev)"
+              echo "Region: us-east-1"
+              echo "Environment: dev"
+              echo "Infrastructure deployment complete!"
+          continueOnError: true
+
+        - task: PublishBuildArtifacts@1
+          displayName: "Publish Terraform outputs"
+          inputs:
+            PathtoPublish: "${Agent.TempDirectory}/outputs.json"
+            ArtifactName: "terraform-outputs-$(ENV)-$(WORKLOAD)"
+            publishLocation: "Container"
+
+
+How to Reference in Terraform Code
+
+In your Terraform code, you need to define a variable for the admin password:
+
+1. Create variables.tf file:
+
+hcl
+variable "admin_password" {
+  description = "Redshift Serverless admin password"
+  type        = string
+  sensitive   = true
+  validation {
+    condition     = length(var.admin_password) >= 8
+    error_message = "Admin password must be at least 8 characters long."
+  }
+}
+
+
+2. Use the variable in your Redshift Serverless configuration:
+
+hcl
+# In your main.tf or redshift-serverless configuration
+resource "aws_redshiftserverless_namespace" "main" {
+  namespace_name = "redshift-serverless-${var.environment}"
+  admin_username = "adminuser"
+  admin_user_password = var.admin_password
+  db_name        = "dev"
+  
+  # ... other configuration
+}
+
+# Or if you're using a workgroup
+resource "aws_redshiftserverless_workgroup" "main" {
+  namespace_name = aws_redshiftserverless_namespace.main.namespace_name
+  workgroup_name = "redshift-workgroup-${var.environment}"
+  
+  # ... other configuration
+}
+
+
+3. Update your dev.tfvars file (optional):
+
+If you want to keep the password only in Azure DevOps, you can remove it from your .tfvars file and rely solely on the pipeline variable.
+
+Key Changes Made:
+
+1. Added variable group reference: - group: redshift-serverless-secrets
+2. Passed secret as environment variable: Using env: section in the shell script tasks
+3. Used Terraform variable: -var="admin_password=${admin_password}" in both plan and apply stages
+4. Added sensitive handling: The variable is marked as sensitive = true in Terraform
+
+Security Notes:
+
+· The password is stored securely in Azure DevOps Variable Group
+· It's passed as an environment variable to the shell script
+· Terraform marks it as sensitive, so it won't be displayed in logs
+· The variable group should have appropriate permissions set
+
+This approach ensures your Redshift password is managed securely through Azure DevOps while being properly passed to your Terraform configuration.
