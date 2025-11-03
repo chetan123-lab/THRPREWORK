@@ -1,0 +1,104 @@
+[17:38, 03/11/2025] Chetan: # variables.tf - Alternative simple version
+variable "bucket_names" {
+  description = "List of bucket names to create"
+  type        = set(string)
+  default     = ["logs", "data", "backup", "temp", "archive"]
+}
+
+# main.tf - Alternative simple version
+resource "aws_s3_bucket" "intelligent_tiering" {
+  for_each = var.bucket_names
+
+  bucket = "${var.bucket_prefix}-${var.environment}-${each.value}"
+  
+  tags = {
+    Name        = each.value
+    Environment = var.environment
+    ManagedBy   = "terraform"
+  }
+}
+
+# Apply common configurations to all buckets
+resource "aws_s3_bucket_versioning" "intelligent_tiering" {
+  for_each = aws_s3_bucket.intelligent_tiering
+
+  bucket = aws_s3_bucket.intelligent_tiering[each.key].id
+  
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_intelligent_tiering_configuration" "main" {
+  for_each = aws_s3_bucket.intelligent_tiering
+
+  name   = "default-tiering-config"
+  bucket = aws_s3_bucket.intelligent_tiering[each.key].id
+
+  tiering {
+    access_tier = "DEEP_ARCHIVE_ACCESS"
+    days        = 180
+  }
+
+  tiering {
+    access_tier = "ARCHIVE_ACCESS"
+    days        = 90
+  }
+
+  status = "Enabled"
+}
+
+# ... (other resources with for_each)
+[17:38, 03/11/2025] Chetan: # outputs.tf
+output "bucket_details" {
+  description = "Details of all created S3 buckets"
+  value = {
+    for k, bucket in aws_s3_bucket.intelligent_tiering : k => {
+      name                    = bucket.bucket
+      arn                     = bucket.arn
+      regional_domain_name    = bucket.bucket_regional_domain_name
+      website_endpoint        = bucket.website_endpoint
+    }
+  }
+}
+
+output "bucket_names" {
+  description = "Map of bucket names"
+  value       = { for k, v in aws_s3_bucket.intelligent_tiering : k => v.bucket }
+}
+
+output "bucket_arns" {
+  description = "Map of bucket ARNs"
+  value       = { for k, v in aws_s3_bucket.intelligent_tiering : k => v.arn }
+}
+[17:39, 03/11/2025] Chetan: # terraform.tfvars
+bucket_prefix = "my-app-data"
+environment   = "production"
+aws_region    = "us-east-1"
+
+buckets = {
+  "app-logs" = {
+    purpose          = "application-logs-storage"
+    intelligent_tiering = true
+    versioning       = false
+    encryption       = true
+  }
+  "raw-data" = {
+    purpose          = "raw-data-processing"
+    intelligent_tiering = true
+    versioning       = true
+    encryption       = true
+  }
+  "backups" = {
+    purpose          = "database-backups"
+    intelligent_tiering = true
+    versioning       = true
+    encryption       = true
+  }
+  "temp" = {
+    purpose          = "temporary-storage"
+    intelligent_tiering = false
+    versioning       = false
+    encryption       = true
+  }
+}
