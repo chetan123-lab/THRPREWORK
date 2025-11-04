@@ -1,0 +1,38 @@
+data "aws_ami" "amazon_linux" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["amzn2-ami-hvm-*-x86_64-gp2"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+
+  filter {
+    name   = "architecture"
+    values = ["x86_64"]
+  }
+}
+
+resource "aws_ami_copy" "private_ami" {
+  name              = "my-private-ami"
+  source_ami_id     = data.aws_ami.amazon_linux.id
+  source_ami_region = "us-west-2" # Replace with the region where the AMI is located
+}
+
+resource "aws_instance" "example" {
+  ami           = aws_ami_copy.private_ami.id
+  instance_type = "m5.8xlarge"
+}
+
+output "ami_id" {
+  value = aws_ami_copy.private_ami.id
+}
+
+output "instance_id" {
+  value = aws_instance.example.id
+}
