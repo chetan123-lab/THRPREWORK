@@ -1,0 +1,14 @@
+data "aws_key_pair" "example" {
+  key_name = "example-key"
+}
+
+resource "aws_key_pair" "example" {
+  count     = try(data.aws_key_pair.example.key_name, "") == "" ? 1 : 0
+  key_name   = "example-key"
+  public_key = tls_private_key.example.public_key_openssh
+}
+
+resource "tls_private_key" "example" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
+}
