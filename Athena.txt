@@ -1,0 +1,109 @@
+terraform {
+  required_version = ">= 1.0"
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = var.aws_region
+}
+
+# Workgroup for Athena
+resource "aws_athena_workgroup" "main" {
+  name = var.workgroup_name
+  configuration {
+    enforce_workgroup_configuration = true
+    publish_cloudwatch_metrics_enabled = true
+    result_configuration {
+      output_location = var.output_location
+      encryption_configuration {
+        encryption_option = "SSE_S3"
+      }
+    }
+  }
+  tags = {
+    Environment = var.environment
+  }
+}
+
+# Data Catalog Database
+resource "aws_glue_catalog_database" "main" {
+  name = var.database_name
+}
+
+# Data Catalog Table
+resource "aws_glue_catalog_table" "main" {
+  name          = var.table_name
+  database_name = aws_glue_catalog_database.main.name
+  table_type    = "EXTERNAL_TABLE"
+
+  storage_descriptor {
+    location      = var.table_location
+    input_format  = "org.apache.hadoop.hive.ql.io.parquet.ParquetInputFormat"
+    output_format = "org.apache.hadoop.hive.ql.io.parquet.ParquetOutputFormat"
+
+    ser_de_info {
+      name                  = "main"
+      serialization_library = "org.apache.hadoop.hive.ql.io.parquet.serde.ParquetHiveSerDe"
+
+      parameters = {
+        "serialization.format" = "1"
+      }
+    }
+
+    columns {
+      name = "id"
+      type = "string"
+    }
+
+    columns {
+      name = "name"
+      type = "string"
+    }
+  }
+}
+variable "aws_region" {
+  type        = string
+  description = "AWS region"
+}
+
+variable "workgroup_name" {
+  type        = string
+  description = "Athena workgroup name"
+}
+
+variable "output_location" {
+  type        = string
+  description = "S3 bucket for Athena query results"
+}
+
+variable "environment" {
+  type        = string
+  description = "Environment (e.g. dev, prod)"
+}
+
+variable "database_name" {
+  type        = string
+  description = "Glue catalog database name"
+}
+
+variable "table_name" {
+  type        = string
+  description = "Glue catalog table name"
+}
+
+variable "table_location" {
+  type        = string
+  description = "S3 bucket for Athena table data"
+}
+aws_region      = "us-east-1"
+workgroup_name  = "main-workgroup"
+output_location = "s3:                                   
+environment     = "dev"
+database_name   = "main_database"
+table_name      = "main_table"
+table_location  = "s3://my-athena-data-bucket/data/"
