@@ -1,0 +1,189 @@
+ variable "aws_region" {
+  description = "AWS region where resources will be created"
+  type        = string
+  default     = "us-east-1"
+}
+
+variable "datazone_domain_name" {
+  description = "Name for the DataZone domain"
+  type        = string
+  default     = "datazone-domain"
+}
+
+variable "datazone_domain_description" {
+  description = "Description for the DataZone domain"
+  type        = string
+  default     = "DataZone domain for Glue and Redshift"
+}
+
+variable "datazone_project_name" {
+  description = "Name for the DataZone project"
+  type        = string
+  default     = "datazone-project"
+}
+
+variable "datazone_project_description" {
+  description = "Description for the DataZone project"
+  type        = string
+  default     = "Project for Glue and Redshift"
+}
+
+variable "kms_key_arn" {
+  description = "ARN of the existing KMS key"
+  type        = string
+  default     = null
+}
+
+variable "environment_profiles" {
+  description = "Map of environment profiles to create with their configurations"
+  type = map(object({
+    name        = string
+    description = string
+    blueprint   = string
+  }))
+  default = {
+    glue = {
+      name        = "glue-default-profile"
+      description = "Default environment profile for AWS Glue"
+      blueprint   = "default-glue-blueprint"
+    }
+    redshift_provisioned = {
+      name        = "redshift-provisioned-profile"
+      description = "Default environment profile for Redshift Provisioned"
+      blueprint   = "default-redshift-blueprint"
+    }
+    redshift_serverless = {
+      name        = "redshift-serverless-profile"
+      description = "Default environment profile for Redshift Serverless"
+      blueprint   = "default-redshift-serverless-blueprint"
+    }
+  }
+}
+
+variable "tags" {
+  description = "Tags to apply to all resources"
+  type        = map(string)
+  default = {
+    Project     = "DataZone"
+    Environment = "Development"
+    ManagedBy   = "Terraform"
+  }
+}
+[14:59, 12/11/2025] Chetan: # AWS Region
+aws_region = "us-east-1"
+
+# DataZone Domain Configuration
+datazone_domain_name        = "datazone-domain"
+datazone_domain_description = "DataZone domain for Glue and Redshift"
+
+# DataZone Project Configuration  
+datazone_project_name        = "analytics-project"
+datazone_project_description = "Analytics project for Glue and Redshift data"
+
+# Existing KMS Key ARN
+kms_key_arn = "arn:aws:kms:us-east-1:123456789012:key/abcd1234-5678-90ef-1234-567890abcdef"
+
+# Environment Profiles Configuration
+environment_profiles = {
+  glue = {
+    name        = "glue-data-profile"
+    description = "Environment profile for AWS Glue data catalog"
+    blueprint   = "default-glue-blueprint"
+  }
+  redshift_provisioned = {
+    name        = "redshift-provisioned-profile"
+    description = "Environment profile for Redshift Provisioned clusters"
+    blueprint   = "default-redshift-blueprint"
+  }
+  redshift_serverless = {
+    name        = "redshift-serverless-profile" 
+    description = "Environment profile for Redshift Serverless"
+    blueprint   = "default-redshift-serverless-blueprint"
+  }
+}
+
+# Resource Tags
+tags = {
+  Project     = "DataAnalytics"
+  Environment = "Production"
+  ManagedBy   = "Terraform"
+  Department  = "DataEngineering"
+}
+[15:00, 12/11/2025] Chetan: # Provider configuration
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = var.aws_region
+}
+
+# DataZone Domain with existing KMS key ARN
+resource "aws_datazone_domain" "main" {
+  name        = var.datazone_domain_name
+  description = var.datazone_domain_description
+  tags        = var.tags
+
+  # Use existing KMS key ARN directly
+  kms_key_identifier = var.kms_key_arn
+}
+
+# DataZone Project
+resource "aws_datazone_project" "main" {
+  domain_identifier = aws_datazone_domain.main.id
+  name              = var.datazone_project_name
+  description       = var.datazone_project_description
+  tags              = var.tags
+}
+
+# Environment Profiles using Default Blueprints
+resource "aws_datazone_environment_profile" "profiles" {
+  for_each = var.environment_profiles
+
+  domain_identifier                 = aws_datazone_domain.main.id
+  project_identifier                = aws_datazone_project.main.id
+  name                             = each.value.name
+  description                      = each.value.description
+  environment_blueprint_identifier = each.value.blueprint
+  tags                             = var.tags
+}
+
+# Outputs
+output "datazone_domain_id" {
+  description = "DataZone Domain ID"
+  value       = aws_datazone_domain.main.id
+}
+
+output "datazone_project_id" {
+  description = "DataZone Project ID"
+  value       = aws_datazone_project.main.id
+}
+
+output "kms_key_arn" {
+  description = "KMS key ARN used for encryption"
+  value       = var.kms_key_arn
+}
+
+output "environment_profiles" {
+  description = "Environment Profile IDs"
+  value = {
+    for key, profile in aws_datazone_environment_profile.profiles :
+    key => profile.id
+  }
+}
+
+output "environment_profile_names" {
+  description = "Environment Profile Names and their IDs"
+  value = {
+    for key, profile in aws_datazone_environment_profile.profiles :
+    key => {
+      name = profile.name
+      id   = profile.id
+    }
+  }
+}
