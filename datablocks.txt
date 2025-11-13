@@ -1,0 +1,56 @@
+# main.tf
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = "us-east-1" # Change to your region
+}
+
+# Data source to get the automatically created provisioning role
+data "aws_iam_roles" "datazone_provisioning" {
+  name_regex = "AmazonDataZoneProvisioning-.*"
+}
+
+# Data source to get the automatically created Redshift access role  
+data "aws_iam_roles" "datazone_redshift" {
+  name_regex = "AmazonDataZoneRedshiftRole-.*"
+}
+
+# DataZone Environment Blueprint Configuration
+resource "aws_datazone_environment_blueprint" "data_warehouse_default" {
+  name        = "DataWarehouseDefault"
+  description = "Default data warehouse blueprint"
+
+  # AWS will automatically create and manage the Redshift access role
+  # No need to specify blueprint_configuration for auto-created roles
+
+  # Use the automatically created provisioning role
+  provisioning_role_arn = data.aws_iam_roles.datazone_provisioning.arns[0]
+
+  # Optional: Parameter sets restriction (unchecked in your screenshot)
+  parameter_sets_restriction {
+    restrict_to_console_created = false
+  }
+}
+
+# Output the auto-detected roles
+output "auto_detected_provisioning_role" {
+  description = "Automatically detected provisioning role ARN"
+  value       = data.aws_iam_roles.datazone_provisioning.arns[0]
+}
+
+output "auto_detected_redshift_roles" {
+  description = "Automatically detected Redshift access roles"
+  value       = data.aws_iam_roles.datazone_redshift.arns
+}
+
+output "blueprint_id" {
+  description = "ID of the created DataZone blueprint"
+  value       = aws_datazone_environment_blueprint.data_warehouse_default.id
+}
