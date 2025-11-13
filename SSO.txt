@@ -1,0 +1,47 @@
+resource "aws_datazone_domain" "example" {
+  name        = "my-datazone-domain"
+  description = "DataZone domain managed by Terraform"
+
+  # Enable the default blueprint
+  enable_default_blueprints = true
+  
+  # Required for Control Tower integration
+  single_sign_on {
+    type = "IAM_IDC"
+  }
+
+  # Domain execution role (create this first or use existing)
+  domain_execution_role = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/aws-datazone-domain-execution-role"
+
+  # Optional: Specify KMS key
+  # kms_key_identifier = aws_kms_key.datazone.arn
+
+  tags = {
+    Environment = "production"
+  }
+}
+
+# Data source for current account ID
+data "aws_caller_identity" "current" {}
+
+# IAM role for DataZone domain execution (if creating new)
+resource "aws_iam_role" "datazone_domain_execution" {
+  name = "aws-datazone-domain-execution-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "datazone.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  managed_policy_arns = [
+    "arn:aws:iam::aws:policy/AmazonDataZoneFullAccess"
+  ]
+}
