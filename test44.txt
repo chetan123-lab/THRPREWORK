@@ -1,0 +1,43 @@
+# DataZone Domain
+resource "aws_datazone_domain" "example" {
+  name        = "example-domain"
+  description = "Example DataZone Domain"
+}
+
+# Critical: Make the Terraform executor a Domain Owner
+# This uses the aws_caller_identity data source to get the current IAM principal
+data "aws_caller_identity" "current" {}
+
+resource "aws_datazone_domain_permissions_policy" "example" {
+  domain_identifier = aws_datazone_domain.example.id
+  
+  permissions {
+    principal = data.aws_caller_identity.current.arn
+    role      = "DOMAIN_OWNER"
+  }
+}
+
+# Now you can create the project (the Terraform principal is a Domain Owner)
+resource "aws_datazone_project" "example" {
+  domain_identifier = aws_datazone_domain.example.id
+  name              = "example-project"
+  description       = "Project accessible to anyone"
+  
+  depends_on = [aws_datazone_domain_permissions_policy.example]
+}
+
+# For project membership, you need to specify specific user/role ARNs
+# ALL_AUTHENTICATED_USERS typically doesn't work for project membership
+resource "aws_datazone_project_membership" "specific_users" {
+  domain_identifier  = aws_datazone_domain.example.id
+  project_identifier = aws_datazone_project.example.id
+  
+  # Specify individual users or roles
+  member {
+    user_identifier = data.aws_caller_identity.current.arn
+  }
+  
+  designation = "PROJECT_OWNER"
+  
+  depends_on = [aws_datazone_project.example]
+}
