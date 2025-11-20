@@ -1,0 +1,54 @@
+# Get current caller identity
+data "aws_caller_identity" "current" {}
+
+# DataZone Domain
+resource "aws_datazone_domain" "example" {
+  name        = "example-domain"
+  description = "Example DataZone Domain"
+}
+
+# Make Terraform executor a Domain Owner
+resource "aws_datazone_domain_permissions_policy" "example" {
+  domain_identifier = aws_datazone_domain.example.id
+  
+  permissions {
+    principal = data.aws_caller_identity.current.arn
+    role      = "DOMAIN_OWNER"
+  }
+}
+
+# Create the project
+resource "aws_datazone_project" "example" {
+  domain_identifier = aws_datazone_domain.example.id
+  name              = "example-project"
+  description       = "Example project"
+  
+  depends_on = [aws_datazone_domain_permissions_policy.example]
+}
+
+# Add yourself as a project member with PROJECT_OWNER role
+resource "aws_datazone_project_membership" "example" {
+  domain_identifier   = aws_datazone_domain.example.id
+  project_identifier = aws_datazone_project.example.id
+
+  member {
+    user_identifier = data.aws_caller_identity.current.arn
+  }
+
+  designation = "PROJECT_OWNER"
+
+  depends_on = [aws_datazone_project.example]
+}
+
+# Optional: Output useful information
+output "domain_id" {
+  value = aws_datazone_domain.example.id
+}
+
+output "project_id" {
+  value = aws_datazone_project.example.id
+}
+
+output "current_user_arn" {
+  value = data.aws_caller_identity.current.arn
+}
