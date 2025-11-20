@@ -1,0 +1,120 @@
+terraform
+# Define a map of databases and crawlers
+variable "databases" {
+  type = map(object({
+    name        = string
+    description = string
+  }))
+  default = {
+    "db1" = {
+      name        = "example_database_1"
+      description = "Example database 1"
+    }
+    "db2" = {
+      name        = "example_database_2"
+      description = "Example database 2"
+    }
+    "db3" = {
+      name        = "example_database_3"
+      description = "Example database 3"
+    }
+  }
+}
+
+# Define the ARN of the existing KMS key
+variable "kms_key_arn" {
+  type        = string
+  description = "The ARN of the existing KMS key"
+  default     = "<your-kms-key-arn>"
+}
+
+# Create a Glue catalog database for each item in the map
+resource "aws_glue_catalog_database" "example" {
+  for_each    = var.databases
+  name        = each.value.name
+  description = each.value.description
+}
+
+# Create a Glue security configuration
+resource "aws_glue_security_configuration" "example" {
+  name = "example-security-config"
+
+  encryption_configuration {
+    cloudwatch_encryption {
+      cloudwatch_encryption_mode = "SSE-KMS"
+      kms_key_arn                = var.kms_key_arn
+    }
+
+    job_bookmarks_encryption {
+      job_bookmarks_encryption_mode = "CSE-KMS"
+      kms_key_arn                   = var.kms_key_arn
+    }
+
+    s3_encryption {
+      s3_encryption_mode = "SSE-KMS"
+      kms_key_arn        = var.kms_key_arn
+    }
+  }
+}
+
+# Create a Glue crawler for each database
+resource "aws_glue_crawler" "example" {
+  for_each            = aws_glue_catalog_database.example
+  database_name       = each.value.name
+  name                = "${each.value.name}_crawler"
+  role                = aws_iam_role.example.arn
+  security_configuration = aws_glue_security_configuration.example.name
+}
+
+# Create an IAM role for the Glue crawler
+resource "aws_iam_role" "example" {
+  name        = "example_glue_crawler_role"
+  description = "Role for the Glue Crawler"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Principal = {
+          Service = "glue.amazonaws.com"
+        }
+        Effect = "Allow"
+      }
+    ]
+  })
+}
+
+# Attach the necessary policies to the IAM role
+resource "aws_iam_role_policy_attachment" "example" {
+  role       = aws_iam_role.example.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSGlueServiceRole"
+}
+
+resource "aws_iam_role_policy_attachment" "example_s3" {
+  role       = aws_iam_role.example.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonS3ReadOnlyAccess"
+}
+
+resource "aws_iam_role_policy" "example_kms" {
+  name        = "glue-kms-policy"
+  description = "Policy for Glue to use KMS key"
+  role        = aws_iam_role.example.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey",
+        ]
+        Resource = var.kms_key_arn
+        Effect    = "Allow"
+      },
+    ]
+  })
+}
